@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOID ROLLER OS v3.0</title>
+<style>
+/* ═══════════════════════════════════════════════════════
+   VOID ROLLER OS — STYLESHEET
+   Fuente: Share Tech Mono (terminal auténtica)
+═══════════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+
+:root {
+  --neon:        #00ff80;
+  --neon-dim:    #003820;
+  --neon-mid:    #00a050;
+  --yellow:      #ffdc32;
+  --red:         #ff3232;
+  --cyan:        #00e5ff;
+  --bg-root:     #0a0a0a;
+  --bg-panel:    #141414;
+  --bg-list:     #1e1e1e;
+  --bg-desc:     #191919;
+  --border:      #00ff80;
+  --text:        #dcdcdc;
+  --glitch-bg:   #280000;
+  --glitch-fg:   #ff3232;
+  --glitch-brd:  #ff0000;
+  --font-mono:   'Share Tech Mono', monospace;
+  --font-vt:     'VT323', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg-root);
+  color: var(--neon);
+  font-family: var(--font-mono);
+  min-height: 100vh;
+  overflow-x: hidden;
+  /* CRT scanline overlay */
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,255,128,0.015) 2px,
+      rgba(0,255,128,0.015) 4px
+    );
+}
+
+/* ── Scrollbars ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-root); }
+::-webkit-scrollbar-thumb { background: var(--neon-dim); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--neon-mid); }
+
+/* ══════════════════════════════════════════
+   LAYOUT PRINCIPAL
+══════════════════════════════════════════ */
+#app {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  grid-template-columns: 1fr;
+  height: 100vh;
+  padding: 10px;
+  gap: 8px;
+  max-width: 1200px;
+  margin: 0 auto;
+  transition: background 0.2s, filter 0.2s;
+}
+
+#app.glitch-active {
+  background: var(--glitch-bg);
+  filter: hue-rotate(160deg) saturate(2);
+  animation: glitch-shake 0.1s infinite;
+}
+
+@keyframes glitch-shake {
+  0%   { transform: translate(0,0); }
+  25%  { transform: translate(-2px, 1px); }
+  50%  { transform: translate(2px,-1px); }
+  75%  { transform: translate(-1px, 2px); }
+  100% { transform: translate(1px, 0); }
+}
+
+/* ══════════════════════════════════════════
+   HEADER / TÍTULO
+══════════════════════════════════════════ */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--neon-dim);
+  padding-bottom: 6px;
+}
+
+#title {
+  font-family: var(--font-vt);
+  font-size: 28px;
+  letter-spacing: 4px;
+  color: var(--neon);
+  text-shadow: 0 0 10px var(--neon), 0 0 30px var(--neon-mid);
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { text-shadow: 0 0 8px var(--neon),  0 0 20px var(--neon-mid); }
+  50%       { text-shadow: 0 0 16px var(--neon), 0 0 50px var(--neon-mid), 0 0 80px var(--neon-dim); }
+}
+
+#sys-clock {
+  font-size: 12px;
+  color: var(--neon-mid);
+  letter-spacing: 2px;
+}
+
+/* ══════════════════════════════════════════
+   HUD DE ESTADÍSTICAS
+══════════════════════════════════════════ */
+#hud {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.hud-cell {
+  background: var(--bg-panel);
+  border: 1px solid var(--neon-dim);
+  padding: 6px 10px;
+  text-align: center;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--text);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, color 0.3s;
+}
+
+.hud-cell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(0,255,128,0.03) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.hud-cell .hud-val {
+  display: block;
+  font-size: 15px;
+  color: var(--neon);
+  font-weight: bold;
+  margin-top: 2px;
+}
+
+.hud-cell .hud-lbl {
+  display: block;
+  font-size: 10px;
+  color: var(--neon-mid);
+  letter-spacing: 2px;
+}
+
+/* Barra de hackeo */
+#hack-bar-wrap {
+  grid-column: 1 / -1;
+  height: 22px;
+  background: var(--bg-panel);
+  border: 1px solid var(--neon-dim);
+  position: relative;
+  overflow: hidden;
+}
+
+#hack-bar-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--neon-dim), var(--neon));
+  transition: width 0.6s cubic-bezier(.4,0,.2,1);
+  position: relative;
+}
+
+#hack-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 30px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+  animation: bar-shine 1.5s ease-in-out infinite;
+}
+
+@keyframes bar-shine {
+  0%, 100% { opacity: 0; }
+  50%       { opacity: 1; }
+}
+
+#hack-bar-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--text);
+  text-shadow: 0 0 6px black, 0 0 6px black;
+  pointer-events: none;
+}
+
+/* ══════════════════════════════════════════
+   ÁREA CENTRAL: DADOS + LOG
+══════════════════════════════════════════ */
+#center {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 8px;
+  min-height: 0;
+}
+
+/* ── Panel de dados ── */
+#dice-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--neon-dim);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 14px 10px;
+  gap: 12px;
+}
+
+.panel-title {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--neon-mid);
+  border-bottom: 1px solid var(--neon-dim);
+  width: 100%;
+  text-align: center;
+  padding-bottom: 6px;
+}
+
+#dice-row {
+  display: flex;
+  gap: 10px;
+}
+
+.die {
+  width: 72px;
+  height: 72px;
+  background: var(--bg-list);
+  border: 2px solid var(--neon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-vt);
+  font-size: 46px;
+  color: var(--neon);
+  text-shadow: 0 0 10px var(--neon);
+  position: relative;
+  transition: transform 0.15s, box-shadow 0.3s;
+}
+
+.die.rolling {
+  animation: die-roll 0.5s ease-out;
+}
+
+@keyframes die-roll {
+  0%   { transform: rotateY(0deg)   scale(1);   }
+  25%  { transform: rotateY(90deg)  scale(0.8); }
+  50%  { transform: rotateY(180deg) scale(1.1); }
+  75%  { transform: rotateY(270deg) scale(0.9); }
+  100% { transform: rotateY(360deg) scale(1);   }
+}
+
+.die-label {
+  position: absolute;
+  bottom: -18px;
+  font-size: 10px;
+  color: var(--neon-mid);
+  letter-spacing: 1px;
+}
+
+#dice-info {
+  font-size: 12px;
+  color: var(--neon-mid);
+  text-align: center;
+  margin-top: 8px;
+}
+
+#punto-display {
+  font-size: 13px;
+  color: var(--yellow);
+  letter-spacing: 1px;
+  text-align: center;
+  min-height: 18px;
+}
+
+.divider {
+  width: 100%;
+  height: 1px;
+  background: var(--neon-dim);
+}
+
+.info-row {
+  width: 100%;
+  font-size: 11px;
+  color: var(--neon-mid);
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.info-row span {
+  color: var(--neon);
+  display: block;
+  font-size: 13px;
+}
+
+/* ── Panel de log ── */
+#log-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--neon-dim);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#log-header {
+  padding: 6px 10px;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--neon-mid);
+  border-bottom: 1px solid var(--neon-dim);
+  flex-shrink: 0;
+}
+
+#log-table-wrap {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+#log-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+#log-table th {
+  background: var(--bg-root);
+  color: var(--neon-mid);
+  padding: 5px 8px;
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 2px;
+  border-bottom: 1px solid var(--neon-dim);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+#log-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(0,56,32,0.4);
+  color: var(--neon);
+  vertical-align: top;
+}
+
+#log-table tr:nth-child(even) td {
+  background: rgba(0,56,32,0.1);
+}
+
+#log-table tr:first-child td {
+  color: var(--text);
+  background: rgba(0,255,128,0.06);
+}
+
+.col-origen { width: 80px;  color: var(--neon-mid) !important; }
+.col-evento { width: 150px; color: var(--yellow)   !important; }
+
+/* ══════════════════════════════════════════
+   BOTONES PRINCIPALES
+══════════════════════════════════════════ */
+#btn-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  height: 52px;
+}
+
+.btn-main {
+  background: transparent;
+  border: 1px solid;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-main::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.btn-main:active { transform: scale(0.97); }
+
+.btn-main:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+}
+
+#btn-roll   { border-color: #0050b0; color: #80c0ff; }
+#btn-roll:hover:not(:disabled)   { background: rgba(0,80,176,0.3); box-shadow: 0 0 12px rgba(0,80,176,0.5); }
+
+#btn-shop   { border-color: #700090; color: #d080ff; }
+#btn-shop:hover:not(:disabled)   { background: rgba(112,0,144,0.3); box-shadow: 0 0 12px rgba(112,0,144,0.5); }
+
+#btn-events { border-color: #404040; color: #a0a0a0; }
+#btn-events:hover:not(:disabled) { background: rgba(64,64,64,0.4); box-shadow: 0 0 12px rgba(64,64,64,0.5); }
+
+/* ══════════════════════════════════════════
+   MODALES
+══════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(3px);
+  animation: fade-in 0.15s ease;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.modal-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--neon);
+  min-width: 340px;
+  max-width: 90vw;
+  box-shadow: 0 0 30px rgba(0,255,128,0.2), inset 0 0 30px rgba(0,255,128,0.02);
+  animation: slide-up 0.2s ease;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.modal-header {
+  background: var(--bg-root);
+  padding: 10px 16px;
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--neon);
+  border-bottom: 1px solid var(--neon-dim);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--neon-mid);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  padding: 0 4px;
+}
+
+.modal-close:hover { color: var(--red); }
+
+.modal-body { padding: 16px; }
+
+/* Modal de apuesta */
+#bet-amount {
+  width: 100%;
+  background: var(--bg-list);
+  border: 1px solid var(--neon-mid);
+  color: white;
+  font-family: var(--font-vt);
+  font-size: 36px;
+  text-align: center;
+  padding: 8px;
+  outline: none;
+  letter-spacing: 4px;
+}
+
+#bet-amount:focus { border-color: var(--neon); box-shadow: 0 0 8px var(--neon-dim); }
+
+.bet-info {
+  text-align: center;
+  font-size: 11px;
+  color: var(--neon-mid);
+  margin-top: 8px;
+  letter-spacing: 1px;
+}
+
+.modal-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.modal-btn {
+  padding: 10px;
+  border: 1px solid;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.modal-btn.ok     { border-color: #00a050; color: var(--neon); }
+.modal-btn.ok:hover     { background: rgba(0,160,80,0.2); }
+.modal-btn.cancel { border-color: #600000; color: var(--red); }
+.modal-btn.cancel:hover { background: rgba(96,0,0,0.3); }
+
+/* Modal de tienda / eventos */
+.list-modal .modal-box {
+  width: 700px;
+  max-width: 95vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.list-modal .modal-body {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  padding: 10px;
+}
+
+.item-list-wrap {
+  border: 1px solid var(--neon-dim);
+  overflow-y: auto;
+  background: var(--bg-list);
+}
+
+.item-list { list-style: none; }
+
+.item-list li {
+  padding: 9px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(0,56,32,0.3);
+  transition: background 0.1s, color 0.1s;
+  color: var(--text);
+  letter-spacing: 1px;
+}
+
+.item-list li:hover    { background: rgba(0,255,128,0.08); color: white; }
+.item-list li.selected { background: var(--neon); color: black; font-weight: bold; }
+
+.detail-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--bg-root);
+  border: 1px solid var(--neon-dim);
+}
+
+.detail-price {
+  font-size: 15px;
+  color: var(--yellow);
+  letter-spacing: 2px;
+}
+
+.detail-meta {
+  font-size: 11px;
+  color: var(--neon-mid);
+  letter-spacing: 1px;
+}
+
+.detail-desc {
+  flex: 1;
+  border: 1px solid var(--neon-dim);
+  background: var(--bg-desc);
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--neon);
+  line-height: 1.7;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+
+.list-modal-footer {
+  padding: 10px;
+  border-top: 1px solid var(--neon-dim);
+  flex-shrink: 0;
+}
+
+/* Modal de mensaje */
+.msg-modal .modal-box { max-width: 420px; }
+.msg-body {
+  padding: 20px 16px;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+/* ══════════════════════════════════════════
+   NOTIFICACIÓN TOAST
+══════════════════════════════════════════ */
+#toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--bg-panel);
+  border: 1px solid var(--neon);
+  padding: 10px 24px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--neon);
+  z-index: 200;
+  transition: transform 0.3s cubic-bezier(.4,0,.2,1), opacity 0.3s;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+#toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* ══════════════════════════════════════════
+   GAME OVER / VICTORIA OVERLAY
+══════════════════════════════════════════ */
+#endscreen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.92);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 24px;
+}
+
+#endscreen.visible { display: flex; }
+
+#endscreen-title {
+  font-family: var(--font-vt);
+  font-size: 72px;
+  letter-spacing: 8px;
+  text-align: center;
+  animation: flicker 0.15s infinite;
+}
+
+#endscreen-title.gameover { color: var(--red); text-shadow: 0 0 30px var(--red); }
+#endscreen-title.victory  { color: var(--neon); text-shadow: 0 0 30px var(--neon); }
+
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.85; }
+}
+
+#endscreen-sub {
+  font-size: 14px;
+  color: var(--text);
+  letter-spacing: 3px;
+  text-align: center;
+  line-height: 2;
+}
+
+#btn-restart {
+  padding: 14px 40px;
+  border: 1px solid var(--neon);
+  background: transparent;
+  color: var(--neon);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 3px;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+#btn-restart:hover { background: rgba(0,255,128,0.1); box-shadow: 0 0 20px var(--neon-dim); }
+
+/* ══════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════ */
+@media (max-width: 700px) {
+  #hud { grid-template-columns: repeat(3, 1fr); }
+  #center { grid-template-columns: 1fr; }
+  #dice-panel { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  #btn-bar { grid-template-columns: 1fr; height: auto; gap: 6px; }
+  .btn-main { height: 44px; }
+  .list-modal .modal-body { grid-template-columns: 1fr; }
+  .item-list-wrap { max-height: 160px; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div id="title">VOID ROLLER OS</div>
+    <div id="sys-clock">v3.0 | <span id="clock-val">--:--:--</span></div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-cell">
+      <span class="hud-lbl">ACTO</span>
+      <span class="hud-val" id="hud-acto">1</span>
+    </div>
+    <div class="hud-cell">
+      <span class="hud-lbl">SALDO</span>
+      <span class="hud-val" id="hud-saldo">$100.00</span>
+    </div>
+    <div class="hud-cell">
+      <span class="hud-lbl">META</span>
+      <span class="hud-val" id="hud-meta">$500.00</span>
+    </div>
+    <div class="hud-cell">
+      <span class="hud-lbl">VIDAS</span>
+      <span class="hud-val" id="hud-vidas">♥♥♥</span>
+    </div>
+    <div class="hud-cell">
+      <span class="hud-lbl">MULT</span>
+      <span class="hud-val" id="hud-mult">1.0x</span>
+    </div>
+    <div id="hack-bar-wrap">
+      <div id="hack-bar-fill"></div>
+      <div id="hack-bar-text">HACK: 0%</div>
+    </div>
+  </div>
+
+  <!-- CENTRO -->
+  <div id="center">
+
+    <!-- Panel de dados -->
+    <div id="dice-panel">
+      <div class="panel-title">DICE ENGINE</div>
+      <div id="dice-row">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:20px">
+          <div class="die" id="die1">?</div>
+          <div class="die-label" id="die1-label">D6</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:20px">
+          <div class="die" id="die2">?</div>
+          <div class="die-label" id="die2-label">D6</div>
+        </div>
+      </div>
+      <div id="dice-info">suma: —</div>
+      <div id="punto-display">PUNTO: ---</div>
+      <div class="divider"></div>
+      <div class="info-row">SLOTS RAM<span id="ram-slots">0 / 4</span></div>
+      <div class="info-row">ÚLTIMO EVENTO<span id="last-event" style="font-size:11px;word-break:break-all">Ninguno</span></div>
+    </div>
+
+    <!-- Panel de log -->
+    <div id="log-panel">
+      <div id="log-header">KERNEL LOG — PROCESS MONITOR</div>
+      <div id="log-table-wrap">
+        <table id="log-table">
+          <thead>
+            <tr>
+              <th class="col-origen">ORIGEN</th>
+              <th class="col-evento">EVENTO</th>
+              <th>LOG DE PROCESAMIENTO</th>
+            </tr>
+          </thead>
+          <tbody id="log-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- BOTONES -->
+  <div id="btn-bar">
+    <button class="btn-main" id="btn-roll"   onclick="UI.abrirApuesta()">▶  LANZAR DADOS</button>
+    <button class="btn-main" id="btn-shop"   onclick="UI.abrirTienda()">⬡  MARKET VOID</button>
+    <button class="btn-main" id="btn-events" onclick="UI.abrirEventos()">◈  EVENT VOID</button>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- ENDSCREEN -->
+<div id="endscreen">
+  <div id="endscreen-title">GAME OVER</div>
+  <div id="endscreen-sub"></div>
+  <button id="btn-restart" onclick="reiniciar()">[ REINICIAR SISTEMA ]</button>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   VOID ROLLER OS — JAVASCRIPT ENGINE
+   Port completo de VoidRoller.java + IniVoidRoller.java al navegador.
+   Patrones: Strategy (efectos como funciones), Observer (callbacks de UI),
+             Factory (cargarDatosPorActo), State (EstadoSistema enum).
+═══════════════════════════════════════════════════════════════════════ */
+
+// ═══════════════════════════════════════════════════
+// SECCIÓN 1: MOTOR DE PROBABILIDADES
+// ═══════════════════════════════════════════════════
+class ProbabilityEngine {
+  constructor() {
+    this.carasD1  = 6;
+    this.carasD2  = 6;
+    this.luckBias = 0;
+  }
+
+  /** Lanza un dado de N caras con sesgo de suerte aplicado. O(1). */
+  _tirar(caras) {
+    if (caras <= 0) return 0;
+    const r = Math.floor(Math.random() * caras) + 1 + this.luckBias;
+    return Math.max(1, Math.min(caras, r));
+  }
+
+  tirarD1() { return this._tirar(this.carasD1); }
+  tirarD2() { return this.carasD2 === 0 ? 0 : this._tirar(this.carasD2); }
+
+  /** Probabilidad de evento escala con el acto: 40% / 55% / 70%. */
+  ocurreEvento(acto) { return Math.random() * 100 < (25 + acto * 15); }
+
+  resetarDados() { this.carasD1 = 6; this.carasD2 = 6; this.luckBias = 0; }
+  setCarasDados(d1, d2) { this.carasD1 = Math.max(0,d1); this.carasD2 = Math.max(0,d2); }
+  ajustarLuck(d)  { this.luckBias += d; }
+}
+
+// ═══════════════════════════════════════════════════
+// SECCIÓN 2: INVENTARIO (Slots limitados)
+// ═══════════════════════════════════════════════════
+class Inventory {
+  constructor() { this.scripts = []; this.capacidad = 4; }
+  instalar(item) {
+    if (this.scripts.length >= this.capacidad)
+      throw new Error(`RAM LLENA — Capacidad máxima: ${this.capacidad} scripts.`);
+    this.scripts.push(item);
+  }
+  tieneEspacio()  { return this.scripts.length < this.capacidad; }
+  slotsUsados()   { return this.scripts.length; }
+  slotsLibres()   { return this.capacidad - this.scripts.length; }
+  expandir(n)     { this.capacidad = Math.min(6, this.capacidad + n); }
+  vaciar()        { this.scripts = []; }
+}
+
+// ═══════════════════════════════════════════════════
+// SECCIÓN 3: KERNEL (VoidRoller.java → JS)
+// ═══════════════════════════════════════════════════
+
+/**
+ * PATRÓN STRATEGY: cada ítem y evento es un objeto con
+ * una función `efecto(kernel)` encapsulada.
+ * PATRÓN OBSERVER: la UI se registra con addObserver().
+ * PATRÓN FACTORY: cargarDatosPorActo() centraliza la creación.
+ */
+class VoidRollerKernel {
+  constructor() {
+    // Estado
+    this.saldo           = 100;
+    this.metaActo        = 500;
+    this.saldoInicioActo = 100;
+    this.multGlobal      = 1.0;
+    this.vidas           = 3;
+    this.actoActual      = 1;
+    this.ultimoD1        = 0;
+    this.ultimoD2        = 0;
+    this.glitched        = false;
+    this.skipEvento      = false;
+    this.puntoCraps      = null;
+    this.ultimoEvento    = 'Ninguno';
+    this.ultimoResultado = '---';
+    this.estado          = 'EJECUTANDO'; // EJECUTANDO | KERNEL_PANIC | GAME_OVER | VICTORIA
+
+    // Subsistemas
+    this.motorDados  = new ProbabilityEngine();
+    this.inventario  = new Inventory();
+    this.poolEventos = [];
+    this.stockTienda = [];
+    this.observers   = [];
+
+    this.cargarDatosPorActo();
+  }
+
+  // ── Observer ──────────────────────────────────────
+  addObserver(fn)      { this.observers.push(fn); }
+  _notify()            { this.observers.forEach(fn => fn()); }
+  _notifyMsg(t, m)     { this.observers.forEach(fn => fn && fn.onMsg && fn.onMsg(t, m)); }
+  emitirMensaje(t, m)  { this.observers.forEach(fn => fn.onMsg && fn.onMsg(t, m)); }
+  _notifyDmg()         { this.observers.forEach(fn => fn.onDmg && fn.onDmg()); }
+
+  // ── FACTORY METHOD: Carga datos por acto ──────────
+  cargarDatosPorActo() {
+    this.poolEventos = [];
+    this.stockTienda = [];
+    const k = this;
+
+    // ── EVENTOS BASE (Strategy: función por evento) ──
+    const ev = (n, c, d, fn) => ({ nombre:n, categoria:c, desc:d, ejecutar: fn });
+
+    // FISICA
+    this.poolEventos.push(ev('Dado Espejo',    'FISICA',   'D2 copia caras de D1',
+      k => k.motorDados.setCarasDados(k.motorDados.carasD1, k.motorDados.carasD1)));
+    this.poolEventos.push(ev('Gravedad 0',     'FISICA',   'Ambos dados a D4',
+      k => k.motorDados.setCarasDados(4, 4)));
+    this.poolEventos.push(ev('Hiper-Realidad', 'FISICA',   'Ambos dados a D12',
+      k => k.motorDados.setCarasDados(12, 12)));
+    this.poolEventos.push(ev('Fuerza Ficticia','FISICA',   'Multiplicador +0.2',
+      k => k.multGlobal += 0.2));
+    this.poolEventos.push(ev('Colision',       'FISICA',   'Pierdes $50',
+      k => k.saldo -= 50));
+    this.poolEventos.push(ev('Vacio',          'FISICA',   'D2 reducido a 0 caras',
+      k => k.motorDados.setCarasDados(k.motorDados.carasD1, 0)));
+    this.poolEventos.push(ev('Friccion',       'FISICA',   'Mult forzado a 0.5x',
+      k => k.multGlobal = 0.5));
+    this.poolEventos.push(ev('Masa Critica',   'FISICA',   'Mult forzado a 2.0x',
+      k => k.multGlobal = 2.0));
+    this.poolEventos.push(ev('Orbita',         'FISICA',   'Estado Glitch invertido',
+      k => k.glitched = !k.glitched));
+    this.poolEventos.push(ev('Singularidad',   'FISICA',   'D1 bloqueado a 1 cara',
+      k => k.motorDados.setCarasDados(1, k.motorDados.carasD2)));
+
+    // RIESGO
+    this.poolEventos.push(ev('Ruleta Rusa',    'RIESGO',   '1 en 6 de probabilidad de morir',
+      k => { if (Math.floor(Math.random()*6)===0) k.quitarVida('RULETA RUSA'); }));
+    this.poolEventos.push(ev('Impuesto',       'RIESGO',   'Saldo reducido 20%',
+      k => k.saldo *= 0.8));
+    this.poolEventos.push(ev('Prestamo',       'RIESGO',   '+$200 / Meta +$400',
+      k => { k.saldo += 200; k.metaActo += 400; }));
+    this.poolEventos.push(ev('Seguro',         'RIESGO',   '$100 por 1 vida extra',
+      k => { if (k.saldo >= 100) { k.saldo -= 100; k.vidas++; } }));
+    this.poolEventos.push(ev('Cripto',         'RIESGO',   'Saldo aleatorio $50-$500',
+      k => k.saldo = 50 + Math.floor(Math.random()*450)));
+    this.poolEventos.push(ev('Sacrificio',     'RIESGO',   '-1 Vida / +$1000',
+      k => { k.vidas--; k.saldo += 1000; }));
+    this.poolEventos.push(ev('Doble/Nada',     'RIESGO',   'Mult forzado a 2.0x',
+      k => k.multGlobal = 2.0));
+    this.poolEventos.push(ev('Embargo',        'RIESGO',   'Saldo forzado a $10',
+      k => k.saldo = 10));
+    this.poolEventos.push(ev('Panico',         'RIESGO',   'Meta del acto +10%',
+      k => k.metaActo *= 1.1));
+    this.poolEventos.push(ev('Suerte',         'RIESGO',   '+1 Vida extra',
+      k => k.vidas++));
+
+    // AMBIENTE
+    this.poolEventos.push(ev('Niebla',         'AMBIENTE', 'Activa Glitch visual',
+      k => k.glitched = true));
+    this.poolEventos.push(ev('Tormenta',       'AMBIENTE', 'Pierdes $10',
+      k => k.saldo -= 10));
+    this.poolEventos.push(ev('Eclipse',        'AMBIENTE', 'Multiplicador a 0',
+      k => k.multGlobal = 0));
+    this.poolEventos.push(ev('Aurora',         'AMBIENTE', 'Recibes $100',
+      k => k.saldo += 100));
+    this.poolEventos.push(ev('Terremoto',      'AMBIENTE', 'Dados transformados a D8',
+      k => k.motorDados.setCarasDados(8, 8)));
+    this.poolEventos.push(ev('Viento',         'AMBIENTE', 'Mult ajustado a 1.1x',
+      k => k.multGlobal = 1.1));
+    this.poolEventos.push(ev('Inundacion',     'AMBIENTE', 'Meta sube $100',
+      k => k.metaActo += 100));
+    this.poolEventos.push(ev('Incendio',       'AMBIENTE', 'Pierdes vida si saldo < $50',
+      k => { if (k.saldo < 50) k.quitarVida('INCENDIO'); }));
+    this.poolEventos.push(ev('Radiacion',      'AMBIENTE', 'Mult aleatorio 0-2x',
+      k => k.multGlobal = Math.random() * 2));
+    this.poolEventos.push(ev('Gravedad Alt',   'AMBIENTE', 'Compensacion +$3',
+      k => k.saldo += 3));
+
+    // HARDWARE
+    this.poolEventos.push(ev('Virus Clover',   'HARDWARE', 'Infeccion visual del sistema',
+      k => { k.glitched = true; k.emitirMensaje('SYSTEM ALERT','⚠ CLOVER VIRUS DETECTED ⚠'); }));
+    this.poolEventos.push(ev('Overclock',      'HARDWARE', 'Mult x3',
+      k => k.multGlobal = 3.0));
+    this.poolEventos.push(ev('Pantalla Azul',  'HARDWARE', 'Proximo evento omitido',
+      k => { k.skipEvento = true; k.estado = 'KERNEL_PANIC'; }));
+    this.poolEventos.push(ev('Bad Sector',     'HARDWARE', 'Corrupcion: -$150',
+      k => k.saldo -= 150));
+    this.poolEventos.push(ev('Thermal Throt.', 'HARDWARE', 'Throttling: Mult 0.2x',
+      k => k.multGlobal = 0.2));
+    this.poolEventos.push(ev('RAM Leak',       'HARDWARE', 'Fuga de memoria: -$20',
+      k => k.saldo -= 20));
+    this.poolEventos.push(ev('GPU Artifact',   'HARDWARE', 'Artefacto grafico: Glitch',
+      k => k.glitched = true));
+    this.poolEventos.push(ev('Kernel Panic',   'HARDWARE', 'Saldo reiniciado a $100',
+      k => k.saldo = 100));
+    this.poolEventos.push(ev('Short Circuit',  'HARDWARE', 'Descarga: -1 vida',
+      k => k.quitarVida('CORTO CIRCUITO')));
+    this.poolEventos.push(ev('Backdoor',       'HARDWARE', 'Acceso root: saldo = meta',
+      k => k.saldo = k.metaActo));
+
+    // ── Escalada de dificultad por acto (Factory Method) ──
+    if (this.actoActual >= 2) {
+      this.poolEventos.push(ev('Bad Sector',    'HARDWARE', 'Corrupcion: -$150', k => k.saldo -= 150));
+      this.poolEventos.push(ev('Short Circuit', 'HARDWARE', 'Descarga: -1 vida',  k => k.quitarVida('CORTO')));
+      this.poolEventos.push(ev('Embargo',       'RIESGO',   'Saldo a $10',         k => k.saldo = 10));
+      this.poolEventos.push(ev('Eclipse',       'AMBIENTE', 'Mult a 0',            k => k.multGlobal = 0));
+      this.poolEventos.push(ev('Ruleta Rusa',   'RIESGO',   '1/6 morir',
+        k => { if (Math.floor(Math.random()*6)===0) k.quitarVida('RULETA'); }));
+    }
+    if (this.actoActual >= 3) {
+      this.poolEventos.push(ev('Extincion',     'HARDWARE', 'Saldo x0.1',          k => k.saldo *= 0.1));
+      this.poolEventos.push(ev('Bad Sector',    'HARDWARE', 'Corrupcion: -$150',   k => k.saldo -= 150));
+      this.poolEventos.push(ev('Short Circuit', 'HARDWARE', 'Descarga: -1 vida',   k => k.quitarVida('CORTO')));
+      this.poolEventos.push(ev('Sacrificio',    'RIESGO',   '-1 vida / +$1000',   k => { k.vidas--; k.saldo += 1000; }));
+      this.poolEventos.push(ev('Eclipse',       'AMBIENTE', 'Mult a 0',            k => k.multGlobal = 0));
+    }
+
+    // ── STOCK DE TIENDA POR ACTO (Factory) ────────────────
+    const it = (n, p, d, fn) => ({ nombre:n, precio:p, descripcion:d, efecto:fn });
+
+    if (this.actoActual === 1) {
+      this.stockTienda.push(it('Cigarro',  100, 'ESTABILIZADOR: Limpia el estado de Glitch activo.\n\nUn cigarro arrugado que emite humo negro. Purga la RAM corrupta.\n\nRiesgo: Nubla la vista en el siguiente tiro.', k => k.glitched = false));
+      this.stockTienda.push(it('Lupa',     100, 'ANALISIS: El proximo tiro no genera ningun evento.\n\nLente con cables soldados. Revela el siguiente evento antes de lanzar.\n\nSinergia: Ideal para combinar con otros items.', k => k.skipEvento = true));
+      this.stockTienda.push(it('Dado_Pb',  100, 'PESO MUERTO: Dados modificados a D4 y D8.\n\nDado de plomo sucio. Controla el rango de resultados posibles.\n\nSinergia: Evita sumas criticas en momentos clave.', k => k.motorDados.setCarasDados(4, 8)));
+      this.stockTienda.push(it('Inyector', 100, 'OVERCLOCK: Multiplicador global +0.5 permanente.\n\nJeringa con liquido neon parpadeante. Escala las ganancias.\n\nRiesgo: Atrae eventos de Hardware negativos.', k => k.multGlobal += 0.5));
+      this.stockTienda.push(it('Iman',     100, 'POLARIDAD: Recibes $50 instantaneos del Void.\n\nIman con mancha de sangre seca. Atrae creditos digitales flotantes.\n\nSinergia: Activa la logica de atraccion de pares.', k => k.saldo += 50));
+      this.stockTienda.push(it('Cerveza',  100, 'REBOOT: Elimina el estado de Glitch activo.\n\nBotella de vidrio oscuro con etiqueta borrosa.\n\nRiesgo: Sin evento activo, pierdes $50 por el mareo.', k => k.glitched = false));
+      this.stockTienda.push(it('Trebol',   100, 'LUCK.EXE: Multiplicador x1.2 + Sesgo de dados +1.\n\nTrebol seco dentro de plastico. Sesga los dados al alza.\n\nSinergia: Mitiga riesgo de Craps en primera tirada.', k => { k.multGlobal *= 1.2; k.motorDados.ajustarLuck(1); }));
+      this.stockTienda.push(it('Bateria',  100, 'BACKUP: Recuperas 1 vida si no estas al maximo.\n\nPila vieja que da toques electricos. Restaura un proceso caido.\n\nSinergia: Esencial en rachas de mala suerte.', k => { if (k.vidas < 3) k.vidas++; }));
+    } else if (this.actoActual === 2) {
+      this.inventario.expandir(1);
+      this.stockTienda.push(it('Pendrive',  350, 'USB: Inyeccion directa de $200 al saldo.\n\nUSB con carcasa derretida. Extrae fondos del Void digital.\n\nRiesgo: Dura una tirada; reduce saldo $200 si se pierde.', k => k.saldo += 200));
+      this.stockTienda.push(it('Antena',    350, 'SEÑAL: Elimina estatica del evento Radio.\n\nMini-antena de clips y papel aluminio. Estabiliza la UI.\n\nSinergia: Garantiza la apuesta si sabes el numero.', k => k.glitched = false));
+      this.stockTienda.push(it('Antivirus', 350, 'CURE: Elimina el proceso del Virus Clover.\n\nDisquete viejo con etiqueta CURE. Borra el virus permanente.\n\nSinergia: Limpia UI para ver el boton de apostar.', k => k.glitched = false));
+      this.stockTienda.push(it('Pasta',     350, 'TERMICA: Multiplicador fijo en 1.5x.\n\nJeringa con sustancia gris viscosa. Estabiliza el procesador.\n\nSinergia: 5 segundos extra en minijuegos de tiempo.', k => k.multGlobal = 1.5));
+      this.stockTienda.push(it('Capacitor', 350, 'ENERGIA: Multiplicador fijo en 2.0x.\n\nComponente electronico a punto de explotar. Potencia maxima.\n\nRiesgo: Pierde si el Jefe reta a numero PAR.', k => k.multGlobal = 2.0));
+      this.stockTienda.push(it('Monitor',   350, 'VISION: Limpia todos los errores visuales.\n\nPantalla con codigo binario cayendo. Recalibra la UI.\n\nSinergia: Para jugadores que no dominan hexadecimal.', k => k.glitched = false));
+      this.stockTienda.push(it('Soldadura', 350, 'ESTAÑO: Ganas +1 vida extra sin restriccion.\n\nFrasco de metal liquido helado. Suelda un proceso caido.\n\nSinergia: Con un 6 activo, busca sumas maximas.', k => k.vidas++));
+      this.stockTienda.push(it('Tequila',   350, 'SISTEMA: Ganas +2 vidas extra totales.\n\nBotella con microchip flotando en el fondo. Rescata procesos.\n\nRiesgo: Activa permanentemente el efecto Monitor CRT.', k => k.vidas += 2));
+    } else {
+      this.inventario.expandir(1);
+      this.stockTienda.push(it('Ojo',      1000, 'OJO: D1 forzado a 1 cara permanentemente.\n\nArtefacto del Void. Vision absoluta y control del azar.\n\nSinergia: Garantiza nunca obtener Natural solo con D1.', k => k.motorDados.setCarasDados(1, k.motorDados.carasD2)));
+      this.stockTienda.push(it('Mano',     1000, 'MANO: Ambos dados a D12 permanentemente.\n\nArtefacto del Void. Poder bruto maximizado al limite.\n\nSinergia: Con mult alto, las ganancias son masivas.', k => k.motorDados.setCarasDados(12, 12)));
+      this.stockTienda.push(it('Soul_exe', 1000, 'ALMA: Sacrifica 1 vida a cambio de $5000.\n\nArtefacto del Void. El precio es existencial.\n\nRiesgo: Quedan menos vidas para el tramo final.', k => { k.vidas--; k.saldo += 5000; }));
+      this.stockTienda.push(it('Root',     1000, 'SUDO: Multiplicador masivo fijado en 5.0x.\n\nArtefacto del Void. Acceso total de superusuario.\n\nSinergia: Con saldo alto, cierra el acto de un golpe.', k => k.multGlobal = 5.0));
+      this.stockTienda.push(it('Contrato', 1000, 'PACTO: Saldo duplicado a cambio de 2 vidas.\n\nArtefacto del Void. La oferta que no puedes rechazar.\n\nRiesgo: Devastador si ya tienes pocas vidas.', k => { k.saldo *= 2; k.vidas -= 2; }));
+      this.stockTienda.push(it('Nucleo',   1000, 'NUCLEO: Recibes $2000 del corazon del sistema.\n\nArtefacto del Void. Extrae energia del nucleo del Void.\n\nSinergia: Impulso directo hacia la meta final.', k => k.saldo += 2000));
+    }
+  }
+
+  // ── Motor de Craps ────────────────────────────────
+  jugarRonda(apuesta) {
+    if (apuesta <= 0) throw new Error('La apuesta debe ser mayor que cero.');
+    if (apuesta > this.saldo) throw new Error(`Fondos insuficientes. Saldo: $${this.saldo.toFixed(2)}`);
+    if (this.estado === 'GAME_OVER' || this.estado === 'VICTORIA') return;
+
+    // 1. Evento aleatorio
+    this.ultimoEvento = 'Ninguno';
+    if (!this.skipEvento && this.motorDados.ocurreEvento(this.actoActual)) {
+      const ev = this.poolEventos[Math.floor(Math.random() * this.poolEventos.length)];
+      this.ultimoEvento = ev.nombre;
+      ev.ejecutar(this);
+    }
+    this.skipEvento = false;
+    if (this.estado === 'KERNEL_PANIC') { this.estado = 'EJECUTANDO'; this._notify(); return; }
+
+    // 2. Tirar dados
+    this.ultimoD1 = this.motorDados.tirarD1();
+    this.ultimoD2 = this.motorDados.tirarD2();
+    const suma = this.ultimoD1 + this.ultimoD2;
+
+    // 3. Lógica de Craps
+    if (this.puntoCraps === null) {
+      if (suma === 7 || suma === 11) {
+        const gan = apuesta * this.multGlobal;
+        this.saldo += gan;
+        this.ultimoResultado = `NATURAL [${this.ultimoD1}+${this.ultimoD2}=${suma}] — GANASTE $${gan.toFixed(2)}`;
+      } else if (suma === 2 || suma === 3 || suma === 12) {
+        this.saldo -= apuesta;
+        this.ultimoResultado = `CRAPS! [${this.ultimoD1}+${this.ultimoD2}=${suma}] — PERDISTE $${apuesta.toFixed(2)}`;
+      } else {
+        this.puntoCraps = suma;
+        this.ultimoResultado = `PUNTO: ${suma} [${this.ultimoD1}+${this.ultimoD2}] — Sigue tirando...`;
+      }
+    } else {
+      if (suma === this.puntoCraps) {
+        const gan = apuesta * this.multGlobal;
+        this.saldo += gan;
+        this.ultimoResultado = `PUNTO! [${this.ultimoD1}+${this.ultimoD2}=${suma}] — GANASTE $${gan.toFixed(2)}`;
+        this.puntoCraps = null;
+      } else if (suma === 7) {
+        this.saldo -= apuesta;
+        this.ultimoResultado = `7-OUT! [${this.ultimoD1}+${this.ultimoD2}=${suma}] — PERDISTE $${apuesta.toFixed(2)}`;
+        this.puntoCraps = null;
+      } else {
+        this.ultimoResultado = `CONTINUA... [${this.ultimoD1}+${this.ultimoD2}=${suma}] — Punto: ${this.puntoCraps}`;
+      }
+    }
+
+    if (this.saldo < 0) this.saldo = 0;
+    if (this.saldo === 0 && this.puntoCraps === null) this.quitarVida('BANCARROTA');
+    if (this.puntoCraps === null) this.motorDados.resetarDados();
+    this.verificarMeta();
+    this._notify();
+  }
+
+  verificarMeta() {
+    if (this.saldo < this.metaActo) return;
+    this.actoActual++;
+    if (this.actoActual > 3) {
+      this.estado = 'VICTORIA';
+      this.emitirMensaje('MISION CUMPLIDA', 'HAS COMPLETADO EL VOID ABSOLUTO.\nVICTORIA DEL SISTEMA.');
+      return;
+    }
+    this.saldoInicioActo = this.saldo;
+    this.metaActo = this.actoActual === 2 ? 2500 : 10000;
+    this.cargarDatosPorActo();
+    this.emitirMensaje('SISTEMA ACTUALIZADO', `ACTO ${this.actoActual} INICIADO\nNueva meta: $${this.metaActo.toFixed(2)}`);
+  }
+
+  quitarVida(causa) {
+    this.vidas--;
+    this.glitched = true;
+    this._notifyDmg();
+    if (this.vidas > 0) {
+      this.saldo = 100; this.puntoCraps = null; this.motorDados.resetarDados();
+      this.emitirMensaje('DAÑO DETECTADO', `${causa}\nSistema reiniciado con $100.`);
+    } else {
+      this.estado = 'GAME_OVER';
+      this.emitirMensaje('FATAL ERROR', `FALLO CRITICO: ${causa}\nGAME OVER.`);
+    }
+  }
+
+  comprarItem(item) {
+    if (this.saldo < item.precio) throw new Error(`Fondos insuficientes. Necesitas $${item.precio.toFixed(2)}.`);
+    this.inventario.instalar(item);
+    this.saldo -= item.precio;
+    item.efecto(this); // ← Strategy en acción
+    this.ultimoEvento    = `INSTALL: ${item.nombre}`;
+    this.ultimoResultado = `Script instalado. Costo: $${item.precio.toFixed(2)}`;
+    this._notify();
+  }
+
+  getProgreso() {
+    const rango = this.metaActo - this.saldoInicioActo;
+    if (rango <= 0) return 1;
+    return Math.max(0, Math.min(1, (this.saldo - this.saldoInicioActo) / rango));
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// SECCIÓN 4: TYPEWRITER LOGGER
+// ═══════════════════════════════════════════════════
+class TypewriterLogger {
+  constructor(tbodyEl) {
+    this.tbody    = tbodyEl;
+    this.cola     = [];
+    this.writing  = false;
+    this.MAX_ROWS = 50;
+  }
+
+  encolar(origen, evento, resultado) {
+    this.cola.unshift({ origen, evento, resultado });
+    if (!this.writing) this._procesarSiguiente();
+  }
+
+  _procesarSiguiente() {
+    if (!this.cola.length) { this.writing = false; return; }
+    this.writing = true;
+    const entry = this.cola.pop();
+
+    // Limpiar filas viejas
+    while (this.tbody.rows.length >= this.MAX_ROWS)
+      this.tbody.deleteRow(this.tbody.rows.length - 1);
+
+    // Insertar fila nueva al inicio
+    const tr = this.tbody.insertRow(0);
+    tr.innerHTML = `
+      <td class="col-origen">${entry.origen}</td>
+      <td class="col-evento">${entry.evento}</td>
+      <td class="col-resultado"></td>`;
+    const cell = tr.querySelector('.col-resultado');
+
+    // Escribir carácter a carácter
+    let i = 0;
+    const texto = entry.resultado;
+    const tick = setInterval(() => {
+      cell.textContent = texto.slice(0, ++i);
+      if (i >= texto.length) {
+        clearInterval(tick);
+        this._procesarSiguiente();
+      }
+    }, 22);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// SECCIÓN 5: UI CONTROLLER (IniVoidRoller → JS)
+// ═══════════════════════════════════════════════════
+const UI = (() => {
+  let kernel, logger, glitchTimer = null;
+  const $ = id => document.getElementById(id);
+
+  // ── Inicializar ────────────────────────────────────
+  function init() {
+    kernel = new VoidRollerKernel();
+    logger = new TypewriterLogger($('log-body'));
+
+    // Registrar callbacks del Observer
+    const obs = { onMsg: mostrarMensaje, onDmg: activarGlitch };
+    obs.call = obs; // compatibilidad
+    kernel.addObserver(refrescarHUD);
+    kernel.addObserver(obs);
+
+    refrescarHUD();
+    iniciarReloj();
+  }
+
+  // ── Observer: refrescar HUD ────────────────────────
+  function refrescarHUD() {
+    $('hud-acto').textContent  = kernel.actoActual;
+    $('hud-saldo').textContent = `$${kernel.saldo.toFixed(2)}`;
+    $('hud-meta').textContent  = `$${kernel.metaActo.toFixed(2)}`;
+    $('hud-mult').textContent  = `${kernel.multGlobal.toFixed(2)}x`;
+
+    // Corazones
+    let c = '';
+    for (let i = 0; i < kernel.vidas; i++) c += '♥';
+    for (let i = kernel.vidas; i < 3; i++) c += '♡';
+    const hudVidas = $('hud-vidas');
+    hudVidas.textContent = c;
+    hudVidas.style.color = kernel.vidas === 1 ? 'var(--red)' : '';
+
+    // Dados con animación
+    const d1 = $('die1'), d2 = $('die2');
+    if (kernel.ultimoD1 > 0) {
+      d1.classList.add('rolling');
+      d2.classList.add('rolling');
+      setTimeout(() => {
+        d1.textContent = kernel.ultimoD1 || '?';
+        d2.textContent = kernel.ultimoD2 || '?';
+        d1.classList.remove('rolling');
+        d2.classList.remove('rolling');
+      }, 500);
+    }
+
+    $('die1-label').textContent = `D${kernel.motorDados.carasD1}`;
+    $('die2-label').textContent = `D${kernel.motorDados.carasD2}`;
+    $('dice-info').textContent  = kernel.ultimoD1 > 0
+      ? `suma: ${kernel.ultimoD1 + kernel.ultimoD2}`
+      : 'suma: —';
+    $('punto-display').textContent = kernel.puntoCraps
+      ? `PUNTO: ${kernel.puntoCraps}`
+      : 'PUNTO: ---';
+
+    // RAM slots
+    $('ram-slots').textContent =
+      `${kernel.inventario.slotsUsados()} / ${kernel.inventario.capacidad}`;
+    $('last-event').textContent = kernel.ultimoEvento;
+
+    // Hack bar
+    const p = kernel.getProgreso();
+    $('hack-bar-fill').style.width = `${(p * 100).toFixed(1)}%`;
+    $('hack-bar-text').textContent = `HACK: ${(p * 100).toFixed(0)}%`;
+
+    // Color de la barra según progreso
+    const r = Math.round(p * 255), g = Math.round((1-p) * 200 + 56);
+    $('hack-bar-fill').style.background =
+      `linear-gradient(90deg, #003820, rgb(${r},${g},0))`;
+
+    // Log typewriter
+    if (kernel.ultimoResultado !== '---') {
+      logger.encolar(`ACT-${kernel.actoActual}`, kernel.ultimoEvento, kernel.ultimoResultado);
+    }
+
+    // Botones
+    const activo = kernel.estado === 'EJECUTANDO';
+    $('btn-roll').disabled  = !activo;
+    $('btn-shop').disabled  = !activo;
+
+    // Estado de fin de juego
+    if (kernel.estado === 'GAME_OVER') mostrarEndscreen(false);
+    if (kernel.estado === 'VICTORIA')  mostrarEndscreen(true);
+  }
+
+  // ── Visual Glitch System ───────────────────────────
+  function activarGlitch() {
+    if (glitchTimer) return;
+    const app = document.getElementById('app');
+    app.classList.add('glitch-active');
+    document.documentElement.style.setProperty('--neon', '#ff3232');
+    document.documentElement.style.setProperty('--border','#ff0000');
+    glitchTimer = setTimeout(() => {
+      app.classList.remove('glitch-active');
+      document.documentElement.style.setProperty('--neon', '#00ff80');
+      document.documentElement.style.setProperty('--border','#00ff80');
+      glitchTimer = null;
+    }, 1500);
+  }
+
+  // ── Reloj del sistema ──────────────────────────────
+  function iniciarReloj() {
+    setInterval(() => {
+      $('clock-val').textContent = new Date().toLocaleTimeString('es-MX', {hour12: false});
+    }, 1000);
+    $('clock-val').textContent = new Date().toLocaleTimeString('es-MX', {hour12: false});
+  }
+
+  // ── Mensajes modales ───────────────────────────────
+  function mostrarMensaje(titulo, mensaje) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay msg-modal';
+    overlay.innerHTML = `
+      <div class="modal-box">
+        <div class="modal-header">
+          <span>${titulo}</span>
+          <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+        </div>
+        <div class="msg-body">${mensaje}</div>
+        <div style="padding:0 16px 16px">
+          <button class="modal-btn ok" style="width:100%"
+            onclick="this.closest('.modal-overlay').remove()">[ ACEPTAR ]</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+
+  // ── Endscreen ──────────────────────────────────────
+  function mostrarEndscreen(victoria) {
+    const es = $('endscreen');
+    const t  = $('endscreen-title');
+    t.textContent = victoria ? 'VICTORIA' : 'GAME OVER';
+    t.className   = victoria ? 'victory'  : 'gameover';
+    $('endscreen-sub').textContent =
+      victoria
+      ? `SISTEMA COMPROMETIDO AL 100%\nActo ${kernel.actoActual} completado\nSaldo final: $${kernel.saldo.toFixed(2)}`
+      : `PROCESO TERMINADO\nActos completados: ${kernel.actoActual - 1}\nSaldo al colapso: $${kernel.saldo.toFixed(2)}`;
+    es.classList.add('visible');
+  }
+
+  // ── Toast ──────────────────────────────────────────
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  // ── Diálogo de apuesta ─────────────────────────────
+  function abrirApuesta() {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-box">
+        <div class="modal-header">
+          <span>BET VOID — APUESTA</span>
+          <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+        </div>
+        <div class="modal-body">
+          <input type="number" id="bet-amount" min="1" value="10" autocomplete="off">
+          <div class="bet-info">SALDO DISPONIBLE: $${kernel.saldo.toFixed(2)}</div>
+          <div class="modal-btns">
+            <button class="modal-btn ok"     id="bet-ok">EJECUTAR</button>
+            <button class="modal-btn cancel" onclick="this.closest('.modal-overlay').remove()">CANCELAR</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const input = overlay.querySelector('#bet-amount');
+    input.focus(); input.select();
+
+    const ejecutar = () => {
+      const val = parseFloat(input.value);
+      try {
+        kernel.jugarRonda(val);
+        overlay.remove();
+      } catch(e) {
+        toast('⚠ ' + e.message);
+      }
+    };
+
+    overlay.querySelector('#bet-ok').onclick = ejecutar;
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') ejecutar(); });
+  }
+
+  // ── Diálogo de tienda ──────────────────────────────
+  function abrirTienda() {
+    const stock = kernel.stockTienda;
+    if (!stock.length) { toast('Stock vacío para este acto.'); return; }
+    abrirListaModal('MARKET VOID — ACTO ' + kernel.actoActual, stock,
+      item => `$${item.precio.toFixed(2)}`,
+      item => `RAM LIBRE: ${kernel.inventario.slotsLibres()} slots`,
+      item => {
+        try { kernel.comprarItem(item); return true; }
+        catch(e) { toast('⚠ ' + e.message); return false; }
+      }, '[ INSTALAR SCRIPT ]', '#007040'
+    );
+  }
+
+  // ── Diálogo de eventos ─────────────────────────────
+  function abrirEventos() {
+    // Deduplicar pool por nombre
+    const visto = new Set();
+    const unicos = kernel.poolEventos.filter(ev => {
+      if (visto.has(ev.nombre)) return false;
+      visto.add(ev.nombre); return true;
+    });
+    const prob = 25 + kernel.actoActual * 15;
+    abrirListaModal('EVENT VOID — ACTO ' + kernel.actoActual, unicos,
+      ev => ev.categoria,
+      ev => `PROB. EVENTO: ${prob}%`,
+      () => true, '[ CERRAR VISOR ]', '#303030', true
+    );
+  }
+
+  /**
+   * Construye un modal de lista genérico reutilizado por tienda y eventos.
+   * Encapsula armarVentana() del Java original.
+   */
+  function abrirListaModal(titulo, items, fnPrecio, fnMeta, fnAccion, btnLabel, btnColor, soloLectura=false) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay list-modal';
+
+    const liItems = items.map((it, i) =>
+      `<li data-idx="${i}">${it.nombre || it.nombre}</li>`
+    ).join('');
+
+    overlay.innerHTML = `
+      <div class="modal-box">
+        <div class="modal-header">
+          <span>${titulo}</span>
+          <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="item-list-wrap">
+            <ul class="item-list" id="ml-list">${liItems}</ul>
+          </div>
+          <div class="detail-panel">
+            <div class="detail-header">
+              <span class="detail-price" id="ml-price">Selecciona un elemento...</span>
+              <span class="detail-meta"  id="ml-meta"></span>
+            </div>
+            <div class="detail-desc" id="ml-desc">
+> Selecciona un elemento de la lista para ver sus detalles.</div>
+          </div>
+        </div>
+        <div class="list-modal-footer">
+          <button class="modal-btn ok" id="ml-btn"
+            style="width:100%;border-color:${btnColor};color:${btnColor}"
+            disabled>${btnLabel}</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    let selIdx = -1;
+    const listEl  = overlay.querySelector('#ml-list');
+    const priceEl = overlay.querySelector('#ml-price');
+    const metaEl  = overlay.querySelector('#ml-meta');
+    const descEl  = overlay.querySelector('#ml-desc');
+    const btnEl   = overlay.querySelector('#ml-btn');
+
+    listEl.addEventListener('click', e => {
+      const li = e.target.closest('li');
+      if (!li) return;
+      listEl.querySelectorAll('li').forEach(el => el.classList.remove('selected'));
+      li.classList.add('selected');
+      selIdx = parseInt(li.dataset.idx);
+      const it = items[selIdx];
+      priceEl.textContent = fnPrecio(it);
+      metaEl.textContent  = fnMeta(it);
+      descEl.textContent  =
+        `> ${it.nombre}\n\n${it.descripcion || it.desc}`;
+      btnEl.disabled = false;
+    });
+
+    btnEl.onclick = () => {
+      if (selIdx < 0) return;
+      if (soloLectura) { overlay.remove(); return; }
+      const ok = fnAccion(items[selIdx]);
+      if (ok) overlay.remove();
+    };
+  }
+
+  return { init, abrirApuesta, abrirTienda, abrirEventos };
+})();
+
+// ── Reiniciar ─────────────────────────────────────────
+function reiniciar() {
+  document.getElementById('endscreen').classList.remove('visible');
+  document.getElementById('log-body').innerHTML = '';
+  UI.init();
+}
+
+// ── Arranque ──────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => UI.init());
+</script>
+</body>
+</html>
