@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOID ROLLER OS v3.1</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap');
+
+/* ═══════════════════════════════════════════
+   VOID ROLLER OS — STYLESHEET v3.1
+   Fixes aplicados de auditoría:
+   · Regla 11 en fase Punto
+   · Reset de dados no destruye ítems permanentes
+   · D6→D10→D20 por acto
+   · Sistema de Tags para anulación Scripts↔Eventos
+   · Selección ponderada de eventos
+   · Bancarrota cancela punto activo
+   · Ítems con efectos corregidos según documentación
+═══════════════════════════════════════════ */
+
+:root {
+  --neon:       #00ff80;
+  --neon-dim:   #003820;
+  --neon-mid:   #00a050;
+  --yellow:     #ffdc32;
+  --red:        #ff3232;
+  --cyan:       #00e5ff;
+  --bg-root:    #0a0a0a;
+  --bg-panel:   #141414;
+  --bg-list:    #1e1e1e;
+  --bg-desc:    #191919;
+  --text:       #dcdcdc;
+  --font-mono:  'Share Tech Mono', monospace;
+  --font-vt:    'VT323', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg-root);
+  color: var(--neon);
+  font-family: var(--font-mono);
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-image: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,255,128,0.015) 2px, rgba(0,255,128,0.015) 4px
+  );
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-root); }
+::-webkit-scrollbar-thumb { background: var(--neon-dim); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--neon-mid); }
+
+/* ── Layout ── */
+#app {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  height: 100vh;
+  padding: 10px;
+  gap: 8px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+#app.glitch-active {
+  filter: hue-rotate(160deg) saturate(2.5);
+  animation: glitch-shake 0.08s infinite;
+}
+@keyframes glitch-shake {
+  0%  { transform: translate(0,0); }
+  25% { transform: translate(-3px,1px); }
+  50% { transform: translate(3px,-1px); }
+  75% { transform: translate(-1px,2px); }
+}
+
+/* ── Header ── */
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--neon-dim);
+  padding-bottom: 6px;
+}
+#title {
+  font-family: var(--font-vt);
+  font-size: 28px;
+  letter-spacing: 4px;
+  text-shadow: 0 0 10px var(--neon), 0 0 30px var(--neon-mid);
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+@keyframes pulse-glow {
+  0%,100% { text-shadow: 0 0 8px var(--neon),  0 0 20px var(--neon-mid); }
+  50%      { text-shadow: 0 0 18px var(--neon), 0 0 50px var(--neon-mid); }
+}
+#sys-clock { font-size: 12px; color: var(--neon-mid); letter-spacing: 2px; }
+
+/* ── HUD ── */
+#hud {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.hud-cell {
+  background: var(--bg-panel);
+  border: 1px solid var(--neon-dim);
+  padding: 6px 10px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.hud-cell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg,rgba(0,255,128,0.04) 0%,transparent 60%);
+  pointer-events: none;
+}
+.hud-val { display: block; font-size: 15px; color: var(--neon); margin-top: 2px; }
+.hud-lbl { display: block; font-size: 10px; color: var(--neon-mid); letter-spacing: 2px; }
+
+/* Hack bar */
+#hack-bar-wrap {
+  grid-column: 1/-1;
+  height: 22px;
+  background: var(--bg-panel);
+  border: 1px solid var(--neon-dim);
+  position: relative;
+  overflow: hidden;
+}
+#hack-bar-fill {
+  height: 100%;
+  width: 0%;
+  transition: width .6s cubic-bezier(.4,0,.2,1);
+  position: relative;
+}
+#hack-bar-fill::after {
+  content: '';
+  position: absolute;
+  right: 0; top: 0; bottom: 0; width: 30px;
+  background: linear-gradient(90deg,transparent,rgba(255,255,255,.3));
+  animation: bar-shine 1.5s ease-in-out infinite;
+}
+@keyframes bar-shine { 0%,100%{opacity:0} 50%{opacity:1} }
+#hack-bar-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--text);
+  text-shadow: 0 0 6px black, 0 0 6px black;
+  pointer-events: none;
+}
+
+/* ── Centro ── */
+#center {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: 8px;
+  min-height: 0;
+}
+
+/* Panel dados */
+#dice-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--neon-dim);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 10px;
+  gap: 10px;
+  overflow-y: auto;
+}
+.panel-title {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--neon-mid);
+  border-bottom: 1px solid var(--neon-dim);
+  width: 100%;
+  text-align: center;
+  padding-bottom: 6px;
+}
+#dice-row { display: flex; gap: 10px; }
+.die-wrap { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.die {
+  width: 72px; height: 72px;
+  background: var(--bg-list);
+  border: 2px solid var(--neon);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-vt);
+  font-size: 46px;
+  color: var(--neon);
+  text-shadow: 0 0 10px var(--neon);
+}
+.die.rolling { animation: die-roll .5s ease-out; }
+@keyframes die-roll {
+  0%   { transform: rotateY(0deg)   scale(1);   }
+  25%  { transform: rotateY(90deg)  scale(.8);  }
+  50%  { transform: rotateY(180deg) scale(1.1); }
+  75%  { transform: rotateY(270deg) scale(.9);  }
+  100% { transform: rotateY(360deg) scale(1);   }
+}
+.die-label { font-size: 10px; color: var(--neon-mid); letter-spacing: 1px; }
+#dice-info  { font-size: 12px; color: var(--neon-mid); text-align: center; }
+#punto-display { font-size: 13px; color: var(--yellow); letter-spacing: 1px; text-align: center; min-height: 18px; }
+.divider { width: 100%; height: 1px; background: var(--neon-dim); }
+.info-row { width: 100%; font-size: 11px; color: var(--neon-mid); letter-spacing: 1px; text-align: center; }
+.info-row span { color: var(--neon); display: block; font-size: 12px; word-break: break-all; }
+
+/* Indicador de escudos activos */
+#shields-row {
+  width: 100%;
+  font-size: 10px;
+  color: var(--cyan);
+  letter-spacing: 1px;
+  text-align: center;
+  min-height: 14px;
+}
+
+/* Panel log */
+#log-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--neon-dim);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+#log-header {
+  padding: 6px 10px;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--neon-mid);
+  border-bottom: 1px solid var(--neon-dim);
+  flex-shrink: 0;
+}
+#log-table-wrap { overflow-y: auto; flex: 1; min-height: 0; }
+#log-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+#log-table th {
+  background: var(--bg-root);
+  color: var(--neon-mid);
+  padding: 5px 8px;
+  text-align: left;
+  font-size: 10px;
+  letter-spacing: 2px;
+  border-bottom: 1px solid var(--neon-dim);
+  position: sticky; top: 0; z-index: 1;
+}
+#log-table td {
+  padding: 5px 8px;
+  border-bottom: 1px solid rgba(0,56,32,.4);
+  color: var(--neon);
+  vertical-align: top;
+}
+#log-table tr:nth-child(even) td { background: rgba(0,56,32,.1); }
+#log-table tr:first-child td    { color: var(--text); background: rgba(0,255,128,.06); }
+.col-origen { width: 80px;  color: var(--neon-mid) !important; }
+.col-evento { width: 160px; color: var(--yellow)   !important; }
+
+/* ── Botones ── */
+#btn-bar {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 8px;
+  height: 52px;
+}
+.btn-main {
+  background: transparent;
+  border: 1px solid;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: background .15s, box-shadow .15s, transform .1s;
+  position: relative;
+  overflow: hidden;
+}
+.btn-main::before {
+  content:'';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg,rgba(255,255,255,.08) 0%,transparent 50%);
+  pointer-events: none;
+}
+.btn-main:active  { transform: scale(.97); }
+.btn-main:disabled { opacity:.3; cursor:not-allowed; transform:none; }
+#btn-roll:hover:not(:disabled)   { background:rgba(0,80,176,.3);   box-shadow:0 0 12px rgba(0,80,176,.5); }
+#btn-shop:hover:not(:disabled)   { background:rgba(112,0,144,.3);  box-shadow:0 0 12px rgba(112,0,144,.5); }
+#btn-events:hover:not(:disabled) { background:rgba(64,64,64,.4);   box-shadow:0 0 12px rgba(64,64,64,.5); }
+#btn-roll   { border-color:#0050b0; color:#80c0ff; }
+#btn-shop   { border-color:#700090; color:#d080ff; }
+#btn-events { border-color:#404040; color:#a0a0a0; }
+
+/* ── Modales ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(3px);
+  animation: fade-in .15s ease;
+}
+@keyframes fade-in { from{opacity:0} to{opacity:1} }
+.modal-box {
+  background: var(--bg-panel);
+  border: 1px solid var(--neon);
+  min-width: 340px;
+  max-width: 90vw;
+  box-shadow: 0 0 30px rgba(0,255,128,.2), inset 0 0 30px rgba(0,255,128,.02);
+  animation: slide-up .2s ease;
+}
+@keyframes slide-up { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+.modal-header {
+  background: var(--bg-root);
+  padding: 10px 16px;
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--neon);
+  border-bottom: 1px solid var(--neon-dim);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-close { background:none; border:none; color:var(--neon-mid); cursor:pointer; font-family:var(--font-mono); font-size:16px; padding:0 4px; }
+.modal-close:hover { color:var(--red); }
+.modal-body { padding: 16px; }
+
+/* Modal apuesta */
+#bet-amount {
+  width: 100%;
+  background: var(--bg-list);
+  border: 1px solid var(--neon-mid);
+  color: white;
+  font-family: var(--font-vt);
+  font-size: 36px;
+  text-align: center;
+  padding: 8px;
+  outline: none;
+  letter-spacing: 4px;
+}
+#bet-amount:focus { border-color:var(--neon); box-shadow:0 0 8px var(--neon-dim); }
+.bet-info { text-align:center; font-size:11px; color:var(--neon-mid); margin-top:8px; letter-spacing:1px; }
+.modal-btns { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+.modal-btn { padding:10px; border:1px solid; background:transparent; font-family:var(--font-mono); font-size:12px; letter-spacing:2px; cursor:pointer; transition:background .15s; }
+.modal-btn.ok     { border-color:#00a050; color:var(--neon); }
+.modal-btn.ok:hover     { background:rgba(0,160,80,.2); }
+.modal-btn.cancel { border-color:#600000; color:var(--red); }
+.modal-btn.cancel:hover { background:rgba(96,0,0,.3); }
+
+/* Modal lista (tienda/eventos) */
+.list-modal .modal-box {
+  width: 720px;
+  max-width: 95vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+.list-modal .modal-body {
+  display: grid;
+  grid-template-columns: 190px 1fr;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+  padding: 10px;
+}
+.item-list-wrap { border:1px solid var(--neon-dim); overflow-y:auto; background:var(--bg-list); }
+.item-list { list-style:none; }
+.item-list li {
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(0,56,32,.3);
+  transition: background .1s, color .1s;
+  color: var(--text);
+  letter-spacing: 1px;
+}
+.item-list li:hover    { background:rgba(0,255,128,.08); color:white; }
+.item-list li.selected { background:var(--neon); color:black; }
+/* Badge de tag en la lista */
+.tag-badge {
+  display: inline-block;
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  margin-left: 6px;
+  vertical-align: middle;
+  letter-spacing: 1px;
+}
+.tag-HARDWARE { background:#1a0a00; color:#ff8040; border:1px solid #ff4000; }
+.tag-CALOR    { background:#1a0800; color:#ff6000; border:1px solid #ff8000; }
+.tag-VIRUS    { background:#001a00; color:#00ff00; border:1px solid #00c000; }
+.tag-TIEMPO   { background:#00101a; color:#00c0ff; border:1px solid #0080ff; }
+.tag-RIESGO   { background:#1a0010; color:#ff40c0; border:1px solid #c00080; }
+.tag-NINGUNO  { background:#0a0a0a; color:#606060; border:1px solid #404040; }
+
+.detail-panel { display:flex; flex-direction:column; gap:8px; min-height:0; }
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--bg-root);
+  border: 1px solid var(--neon-dim);
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.detail-price { font-size:15px; color:var(--yellow); letter-spacing:2px; }
+.detail-meta  { font-size:11px; color:var(--neon-mid); letter-spacing:1px; }
+.detail-shield-info { font-size:10px; color:var(--cyan); letter-spacing:1px; }
+.detail-desc {
+  flex: 1;
+  border: 1px solid var(--neon-dim);
+  background: var(--bg-desc);
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--neon);
+  line-height: 1.7;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+.list-modal-footer { padding:10px; border-top:1px solid var(--neon-dim); flex-shrink:0; }
+
+/* Modal mensaje */
+.msg-modal .modal-box { max-width:420px; }
+.msg-body { padding:20px 16px; color:var(--text); font-size:14px; line-height:1.8; white-space:pre-wrap; }
+
+/* Toast */
+#toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--bg-panel);
+  border: 1px solid var(--neon);
+  padding: 10px 24px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--neon);
+  z-index: 200;
+  transition: transform .3s cubic-bezier(.4,0,.2,1), opacity .3s;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+}
+#toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+
+/* Endscreen */
+#endscreen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.92);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 24px;
+}
+#endscreen.visible { display:flex; }
+#endscreen-title {
+  font-family: var(--font-vt);
+  font-size: 72px;
+  letter-spacing: 8px;
+  text-align: center;
+  animation: flicker .15s infinite;
+}
+@keyframes flicker { 0%,100%{opacity:1} 50%{opacity:.85} }
+#endscreen-title.gameover { color:var(--red);  text-shadow:0 0 30px var(--red); }
+#endscreen-title.victoria { color:var(--neon); text-shadow:0 0 30px var(--neon); }
+#endscreen-sub { font-size:14px; color:var(--text); letter-spacing:3px; text-align:center; line-height:2; }
+#btn-restart {
+  padding: 14px 40px;
+  border: 1px solid var(--neon);
+  background: transparent;
+  color: var(--neon);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 3px;
+  cursor: pointer;
+  transition: background .2s, box-shadow .2s;
+}
+#btn-restart:hover { background:rgba(0,255,128,.1); box-shadow:0 0 20px var(--neon-dim); }
+
+/* Responsive */
+@media (max-width:700px) {
+  #hud    { grid-template-columns:repeat(3,1fr); }
+  #center { grid-template-columns:1fr; }
+  #btn-bar { grid-template-columns:1fr; height:auto; gap:6px; }
+  .btn-main { height:44px; }
+  .list-modal .modal-body { grid-template-columns:1fr; }
+  .item-list-wrap { max-height:160px; }
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="header">
+    <div id="title">VOID ROLLER OS</div>
+    <div id="sys-clock">v3.1 | <span id="clock-val">--:--:--</span></div>
+  </div>
+
+  <div id="hud">
+    <div class="hud-cell"><span class="hud-lbl">ACTO</span><span class="hud-val" id="hud-acto">1</span></div>
+    <div class="hud-cell"><span class="hud-lbl">SALDO</span><span class="hud-val" id="hud-saldo">$100.00</span></div>
+    <div class="hud-cell"><span class="hud-lbl">META</span><span class="hud-val" id="hud-meta">$500.00</span></div>
+    <div class="hud-cell"><span class="hud-lbl">VIDAS</span><span class="hud-val" id="hud-vidas">♥♥♥</span></div>
+    <div class="hud-cell"><span class="hud-lbl">MULT</span><span class="hud-val" id="hud-mult">1.0x</span></div>
+    <div id="hack-bar-wrap">
+      <div id="hack-bar-fill"></div>
+      <div id="hack-bar-text">HACK: 0%</div>
+    </div>
+  </div>
+
+  <div id="center">
+    <div id="dice-panel">
+      <div class="panel-title">DICE ENGINE</div>
+      <div id="dice-row">
+        <div class="die-wrap"><div class="die" id="die1">?</div><div class="die-label" id="die1-label">D6</div></div>
+        <div class="die-wrap"><div class="die" id="die2">?</div><div class="die-label" id="die2-label">D6</div></div>
+      </div>
+      <div id="dice-info">suma: —</div>
+      <div id="punto-display">PUNTO: ---</div>
+      <div class="divider"></div>
+      <div class="info-row">SLOTS RAM<span id="ram-slots">0 / 4</span></div>
+      <div class="info-row">ESCUDOS<span id="shields-row" style="color:var(--cyan)">ninguno</span></div>
+      <div class="divider"></div>
+      <div class="info-row">ÚLTIMO EVENTO<span id="last-event" style="font-size:11px">Ninguno</span></div>
+      <div class="info-row">DADOS BASE<span id="dados-base">D6 + D6</span></div>
+    </div>
+
+    <div id="log-panel">
+      <div id="log-header">KERNEL LOG — PROCESS MONITOR</div>
+      <div id="log-table-wrap">
+        <table id="log-table">
+          <thead>
+            <tr>
+              <th class="col-origen">ORIGEN</th>
+              <th class="col-evento">EVENTO</th>
+              <th>LOG DE PROCESAMIENTO</th>
+            </tr>
+          </thead>
+          <tbody id="log-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="btn-bar">
+    <button class="btn-main" id="btn-roll"   onclick="UI.abrirApuesta()">▶  LANZAR DADOS</button>
+    <button class="btn-main" id="btn-shop"   onclick="UI.abrirTienda()">⬡  MARKET VOID</button>
+    <button class="btn-main" id="btn-events" onclick="UI.abrirEventos()">◈  EVENT VOID</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="endscreen">
+  <div id="endscreen-title">GAME OVER</div>
+  <div id="endscreen-sub"></div>
+  <button id="btn-restart" onclick="reiniciar()">[ REINICIAR SISTEMA ]</button>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   VOID ROLLER OS — ENGINE v3.1
+   FIXES DE AUDITORÍA APLICADOS:
+   [FIX-1] ProbabilityEngine: dados base vs temporales separados
+   [FIX-2] Craps: 11 aplica 7-Out en fase de Punto (regla Cloverpit)
+   [FIX-3] D6→D10→D20 automático al avanzar de acto
+   [FIX-4] Sistema de Tags para anulación Scripts↔Eventos
+   [FIX-5] Selección ponderada de eventos (sin duplicados en pool)
+   [FIX-6] Bancarrota cancela punto activo inmediatamente
+   [FIX-7] Ítems con efectos correctos según documentación
+   [FIX-8] Meta Acto 3 reducida a $7,000 (balance)
+   [FIX-9] Multiplicador base automático por acto (1x→1.5x→2x)
+═══════════════════════════════════════════════════════════════ */
+
+// ═══════════════════════════════════
+// TAGS DE EVENTOS (para anulación)
+// ═══════════════════════════════════
+const TAG = Object.freeze({
+  HARDWARE: 'HARDWARE',
+  CALOR:    'CALOR',
+  VIRUS:    'VIRUS',
+  TIEMPO:   'TIEMPO',
+  RIESGO:   'RIESGO',
+  NINGUNO:  'NINGUNO'
+});
+
+// ═══════════════════════════════════
+// [FIX-1] MOTOR DE PROBABILIDADES
+// Dados base (permanentes) vs temporales
+// ═══════════════════════════════════
+class ProbabilityEngine {
+  constructor() {
+    // Base permanente — modificado por ítems y por avance de acto
+    this._baseD1    = 6;
+    this._baseD2    = 6;
+    this._baseLuck  = 0;
+    // Temporales — modificados por eventos, reseteados al fin de turno
+    this.carasD1    = 6;
+    this.carasD2    = 6;
+    this.luckBias   = 0;
+  }
+
+  tirarD1() { return this._tirar(this.carasD1); }
+  tirarD2() { return this.carasD2 === 0 ? 0 : this._tirar(this.carasD2); }
+
+  _tirar(caras) {
+    if (caras <= 0) return 0;
+    const r = Math.floor(Math.random() * caras) + 1 + this.luckBias;
+    return Math.max(1, Math.min(caras, r));
+  }
+
+  /** Probabilidad de evento: Acto1=40%, Acto2=55%, Acto3=70% */
+  ocurreEvento(acto) { return Math.random() * 100 < (25 + acto * 15); }
+
+  /** [FIX-1] Reset solo al base, NO a D6 puro — preserva ítems permanentes */
+  resetarDados() {
+    this.carasD1  = this._baseD1;
+    this.carasD2  = this._baseD2;
+    this.luckBias = this._baseLuck;
+  }
+
+  /** Modifica dados temporalmente (por eventos) */
+  setCarasDados(d1, d2) {
+    this.carasD1 = Math.max(0, d1);
+    this.carasD2 = Math.max(0, d2);
+  }
+
+  /** [FIX-1] Modifica dados de forma permanente (por ítems o por acto) */
+  instalarDadosBase(d1, d2) {
+    this._baseD1 = Math.max(1, d1);
+    this._baseD2 = Math.max(1, d2);
+    this.carasD1 = this._baseD1;
+    this.carasD2 = this._baseD2;
+  }
+
+  /** Bias de suerte permanente (ítem Trébol) */
+  instalarLuckBase(delta) {
+    this._baseLuck += delta;
+    this.luckBias  += delta;
+  }
+
+  /** Bias temporal (por evento) */
+  ajustarLuck(delta) { this.luckBias += delta; }
+
+  get baseD1() { return this._baseD1; }
+  get baseD2() { return this._baseD2; }
+}
+
+// ═══════════════════════════════════
+// INVENTARIO (Slots de RAM)
+// ═══════════════════════════════════
+class Inventory {
+  constructor() { this.scripts = []; this.capacidad = 4; }
+  instalar(item) {
+    if (this.scripts.length >= this.capacidad)
+      throw new Error(`RAM LLENA — Capacidad máxima: ${this.capacidad} scripts.`);
+    this.scripts.push(item);
+  }
+  tieneEspacio()  { return this.scripts.length < this.capacidad; }
+  slotsUsados()   { return this.scripts.length; }
+  slotsLibres()   { return this.capacidad - this.scripts.length; }
+  expandir(n)     { this.capacidad = Math.min(6, this.capacidad + n); }
+  vaciar()        { this.scripts = []; }
+}
+
+// ═══════════════════════════════════
+// KERNEL — VoidRoller v3.1
+// ═══════════════════════════════════
+class VoidRollerKernel {
+  constructor() {
+    this.saldo           = 100;
+    this.metaActo        = 500;
+    this.saldoInicioActo = 100;
+    this.multGlobal      = 1.0;
+    this.multBase        = 1.0;  // [FIX-9] mult permanente por acto
+    this.vidas           = 3;
+    this.actoActual      = 1;
+    this.ultimoD1        = 0;
+    this.ultimoD2        = 0;
+    this.glitched        = false;
+    this.skipEvento      = false;
+    this.puntoCraps      = null;
+    this.ultimoEvento    = 'Ninguno';
+    this.ultimoResultado = '---';
+    this.estado          = 'EJECUTANDO';
+
+    // [FIX-4] Set de tags de eventos anulados por ítems instalados
+    this.eventosAnulados = new Set();
+
+    // [FIX-7] Flag especial de Pendrive Corrupto
+    this.invertirPerdidaPunto = false;
+
+    this.motorDados  = new ProbabilityEngine();
+    this.inventario  = new Inventory();
+    this.poolEventos = [];
+    this.stockTienda = [];
+    this.observers   = [];
+
+    this.cargarDatosPorActo();
+  }
+
+  addObserver(fn)     { this.observers.push(fn); }
+  _notify()           { this.observers.forEach(fn => fn()); }
+  emitirMensaje(t, m) { this.observers.forEach(fn => fn.onMsg && fn.onMsg(t, m)); }
+  _notifyDmg()        { this.observers.forEach(fn => fn.onDmg && fn.onDmg()); }
+
+  // ═══════════════════════════════
+  // [FIX-5] FACTORY con pesos
+  // ev(nombre, categoria, tag, esNegativo, [peso1,peso2,peso3], fn)
+  // ═══════════════════════════════
+  cargarDatosPorActo() {
+    this.poolEventos = [];
+    this.stockTienda = [];
+    const k = this;
+
+    const ev = (n, cat, tag, neg, pesos, fn) =>
+      ({ nombre:n, categoria:cat, tag, esNegativo:neg, pesos, ejecutar:fn });
+
+    // ── FISICA ──────────────────────────────────────────────────
+    this.poolEventos.push(ev('Dado Espejo',    'FISICA',   TAG.NINGUNO, false, [8,8,6],
+      k => k.motorDados.setCarasDados(k.motorDados.carasD1, k.motorDados.carasD1)));
+    this.poolEventos.push(ev('Gravedad 0',     'FISICA',   TAG.TIEMPO,  true,  [6,8,10],
+      k => k.motorDados.setCarasDados(4, 4)));
+    this.poolEventos.push(ev('Hiper-Realidad', 'FISICA',   TAG.NINGUNO, false, [5,7,9],
+      k => k.motorDados.setCarasDados(20, 20)));
+    this.poolEventos.push(ev('Fuerza Ficticia','FISICA',   TAG.NINGUNO, false, [7,9,8],
+      k => k.multGlobal += 0.2));
+    this.poolEventos.push(ev('Colision',       'FISICA',   TAG.NINGUNO, true,  [8,10,8],
+      k => k.saldo -= 50));
+    this.poolEventos.push(ev('Vacio',          'FISICA',   TAG.NINGUNO, true,  [4,6,8],
+      k => k.motorDados.setCarasDados(k.motorDados.carasD1, 0)));
+    this.poolEventos.push(ev('Friccion',       'FISICA',   TAG.NINGUNO, true,  [6,7,8],
+      k => k.multGlobal = Math.max(0.2, k.multBase * 0.5)));
+    this.poolEventos.push(ev('Masa Critica',   'FISICA',   TAG.NINGUNO, false, [5,7,9],
+      k => k.multGlobal = k.multBase * 2.0));
+    this.poolEventos.push(ev('Orbita',         'FISICA',   TAG.NINGUNO, false, [5,6,6],
+      k => k.glitched = !k.glitched));
+    this.poolEventos.push(ev('Singularidad',   'FISICA',   TAG.NINGUNO, true,  [4,6,8],
+      k => k.motorDados.setCarasDados(1, k.motorDados.carasD2)));
+
+    // ── RIESGO ───────────────────────────────────────────────────
+    this.poolEventos.push(ev('Ruleta Rusa',    'RIESGO',   TAG.RIESGO,  true,  [4,8,14],
+      k => { if (Math.floor(Math.random()*6)===0) k.quitarVida('RULETA RUSA'); }));
+    this.poolEventos.push(ev('Impuesto',       'RIESGO',   TAG.RIESGO,  true,  [7,10,12],
+      k => k.saldo *= 0.8));
+    this.poolEventos.push(ev('Prestamo',       'RIESGO',   TAG.RIESGO,  false, [6,7,6],
+      k => { k.saldo += 200; k.metaActo += 300; }));
+    this.poolEventos.push(ev('Seguro',         'RIESGO',   TAG.RIESGO,  false, [5,6,5],
+      k => { if (k.saldo >= 100) { k.saldo -= 100; k.vidas++; } }));
+    this.poolEventos.push(ev('Cripto',         'RIESGO',   TAG.RIESGO,  false, [5,6,5],
+      k => k.saldo = 50 + Math.floor(Math.random()*450)));
+    this.poolEventos.push(ev('Sacrificio',     'RIESGO',   TAG.RIESGO,  true,  [4,6,8],
+      k => { k.vidas--; k.saldo += 1000; }));
+    this.poolEventos.push(ev('Doble/Nada',     'RIESGO',   TAG.RIESGO,  false, [5,6,7],
+      k => k.multGlobal = k.multBase * 2.0));
+    this.poolEventos.push(ev('Embargo',        'RIESGO',   TAG.RIESGO,  true,  [5,9,14],
+      k => k.saldo = 10));
+    this.poolEventos.push(ev('Panico',         'RIESGO',   TAG.RIESGO,  true,  [4,6,8],
+      k => k.metaActo *= 1.08));
+    this.poolEventos.push(ev('Suerte',         'RIESGO',   TAG.NINGUNO, false, [7,6,5],
+      k => k.vidas++));
+    this.poolEventos.push(ev('Dia de Pago',    'RIESGO',   TAG.NINGUNO, false, [6,7,8],
+      k => { k.multGlobal = k.multBase * 3.0; }));
+    this.poolEventos.push(ev('El Prestamista', 'RIESGO',   TAG.RIESGO,  true,  [4,6,8],
+      k => { k.saldo += 1500; k.multGlobal = Math.max(0.1, k.multBase * 0.7); }));
+
+    // ── AMBIENTE ─────────────────────────────────────────────────
+    this.poolEventos.push(ev('Niebla',         'AMBIENTE', TAG.NINGUNO, true,  [7,8,9],
+      k => k.glitched = true));
+    this.poolEventos.push(ev('Tormenta',       'AMBIENTE', TAG.NINGUNO, true,  [7,9,10],
+      k => k.saldo -= 10));
+    this.poolEventos.push(ev('Eclipse',        'AMBIENTE', TAG.NINGUNO, true,  [4,7,10],
+      k => k.multGlobal = 0));
+    this.poolEventos.push(ev('Aurora',         'AMBIENTE', TAG.NINGUNO, false, [8,7,6],
+      k => k.saldo += 100));
+    this.poolEventos.push(ev('Terremoto',      'AMBIENTE', TAG.CALOR,   true,  [5,7,9],
+      k => k.motorDados.setCarasDados(8, 8)));
+    this.poolEventos.push(ev('Viento',         'AMBIENTE', TAG.NINGUNO, false, [7,7,7],
+      k => k.multGlobal = k.multBase * 1.3));
+    this.poolEventos.push(ev('Inundacion',     'AMBIENTE', TAG.NINGUNO, true,  [5,6,7],
+      k => k.metaActo += 80));
+    this.poolEventos.push(ev('Incendio',       'AMBIENTE', TAG.CALOR,   true,  [5,7,9],
+      k => { if (k.saldo < 50) k.quitarVida('INCENDIO'); }));
+    this.poolEventos.push(ev('Radiacion',      'AMBIENTE', TAG.NINGUNO, false, [5,6,7],
+      k => k.multGlobal = k.motorDados._tirar ? (Math.random()*2) : k.multBase));
+    this.poolEventos.push(ev('Apagon 7-11',    'AMBIENTE', TAG.NINGUNO, true,  [5,6,7],
+      k => k.glitched = true));
+
+    // ── HARDWARE ─────────────────────────────────────────────────
+    this.poolEventos.push(ev('Virus Clover',   'HARDWARE', TAG.VIRUS,   true,  [5,8,10],
+      k => { k.glitched = true; k.emitirMensaje('SYSTEM ALERT','⚠ CLOVER VIRUS DETECTED ⚠'); }));
+    this.poolEventos.push(ev('Overclock',      'HARDWARE', TAG.HARDWARE,false, [5,7,9],
+      k => k.multGlobal = k.multBase * 3.0));
+    this.poolEventos.push(ev('Pantallazo Azul','HARDWARE', TAG.HARDWARE,true,  [4,6,8],
+      k => { k.skipEvento = true; k.estado = 'KERNEL_PANIC'; }));
+    this.poolEventos.push(ev('Bad Sector',     'HARDWARE', TAG.HARDWARE,true,  [5,10,16],
+      k => k.saldo -= 150));
+    this.poolEventos.push(ev('Thermal Throt.', 'HARDWARE', TAG.CALOR,   true,  [4,8,12],
+      k => k.multGlobal = 0.2));
+    this.poolEventos.push(ev('RAM Leak',       'HARDWARE', TAG.HARDWARE,true,  [6,9,12],
+      k => k.saldo -= 20));
+    this.poolEventos.push(ev('GPU Artifact',   'HARDWARE', TAG.HARDWARE,true,  [5,7,9],
+      k => k.glitched = true));
+    this.poolEventos.push(ev('Kernel Panic',   'HARDWARE', TAG.HARDWARE,true,  [4,7,10],
+      k => k.saldo = Math.min(k.saldo, 100)));
+    this.poolEventos.push(ev('Short Circuit',  'HARDWARE', TAG.HARDWARE,true,  [4,8,14],
+      k => k.quitarVida('CORTO CIRCUITO')));
+    this.poolEventos.push(ev('Backdoor USB',   'HARDWARE', TAG.HARDWARE,false, [3,5,7],
+      k => k.saldo = Math.min(k.saldo + 500, k.metaActo)));
+    this.poolEventos.push(ev('Sobrecalent.',   'HARDWARE', TAG.CALOR,   true,  [3,7,11],
+      k => { k.glitched = true; k.saldo -= 80; }));
+    this.poolEventos.push(ev('Firmware Corr.', 'HARDWARE', TAG.HARDWARE,true,  [0,6,10],
+      k => k.motorDados.setCarasDados(
+        Math.floor(Math.random()*10)+1,
+        Math.floor(Math.random()*10)+1)));
+    this.poolEventos.push(ev('Extincion',      'HARDWARE', TAG.HARDWARE,true,  [0,0,8],
+      k => k.saldo *= 0.15));
+
+    // ── STOCK DE TIENDA POR ACTO ──────────────────────────────
+    // [FIX-7] Efectos corregidos según documentación original
+    const it = (n, p, d, anula, fn) =>
+      ({ nombre:n, precio:p, descripcion:d, anulaTag:anula, efecto:fn });
+
+    if (this.actoActual === 1) {
+      this.stockTienda.push(it('Cigarro',   100,
+        'ESTABILIZADOR: Recupera 1 vida inmediatamente.\n\nUn cigarro arrugado que emite humo negro. Purga la RAM.\n\nRiesgo: Nubla la vista (Glitch) durante el siguiente tiro.\n\nEFECTO: vidas++',
+        null, k => { k.vidas++; k.glitched = true; }));
+
+      this.stockTienda.push(it('Lupa',      100,
+        'ANALISIS: Revela el resultado del proximo tiro antes de lanzar.\n\nLente con cables soldados. Omite el evento de la siguiente ronda.\n\nSinergia: Ideal para decidir si usar otro objeto.\n\nEFECTO: skipEvento = true',
+        null, k => k.skipEvento = true));
+
+      this.stockTienda.push(it('Dado_Pb',   100,
+        '[FIX] PESO MUERTO: Garantiza que D1 no saque mas de 3.\n\nDado de plomo sucio. Instala caras base en D1=3.\n\nSinergia: Ayuda a evitar el 11 o 12 (Craps) en momentos criticos.\n\nEFECTO: baseD1 = 3 (permanente)',
+        null, k => k.motorDados.instalarDadosBase(3, k.motorDados.baseD2)));
+
+      this.stockTienda.push(it('Inyector',  100,
+        'OVERCLOCK: Multiplicador global +0.5 permanente.\n\nJeringa con liquido neon parpadeante. Escala las ganancias.\n\nRiesgo: Atrae eventos de Hardware negativos.\n\nEFECTO: multBase += 0.5',
+        null, k => { k.multBase += 0.5; k.multGlobal += 0.5; }));
+
+      this.stockTienda.push(it('Iman',      100,
+        '[FIX] POLARIDAD: Sesga los dados para obtener sumas PARES.\n\nIman con mancha de sangre seca. Aplica LuckBias +1.\n\nSinergia: Aumenta probabilidad de sumas pares al tirar.\n\nEFECTO: luckBias base +1',
+        null, k => k.motorDados.instalarLuckBase(1)));
+
+      this.stockTienda.push(it('Cerveza',   100,
+        '[FIX] ESCUDO: Anula el proximo evento NEGATIVO automaticamente.\n\nBotella de vidrio oscuro. Activa escudo de un solo uso.\n\nRiesgo: Si no ocurre evento, pierdes $50 por el mareo.\n\nEFECTO: escudo de evento negativo',
+        TAG.RIESGO, k => k.eventosAnulados.add('__NEGATIVO__')));
+
+      this.stockTienda.push(it('Trebol',    100,
+        'LUCK.EXE: Multiplicador x1.2 + sesgo de dados permanente +1.\n\nTrebol seco dentro de plastico. Sesga los dados al alza.\n\nSinergia: Mitiga riesgo de Craps en primera tirada.\n\nEFECTO: mult x1.2, luckBase +1',
+        null, k => { k.multBase *= 1.2; k.multGlobal *= 1.2; k.motorDados.instalarLuckBase(1); }));
+
+      this.stockTienda.push(it('Bateria',   100,
+        'BACKUP: Detiene eventos de Tiempo (Gravedad 0, etc).\n\nPila vieja con toques electricos. Anula tags TIEMPO.\n\nSinergia: Tiempo infinito en eventos con cronometro.\n\nEFECTO: escudo TAG.TIEMPO',
+        TAG.TIEMPO, k => k.eventosAnulados.add(TAG.TIEMPO)));
+
+    } else if (this.actoActual === 2) {
+      this.inventario.expandir(1);
+      this.stockTienda.push(it('Ventilador', 350,
+        '[FIX] CPU FAN: Anula instantaneamente eventos de CALOR.\n\nVentilador con LEDs rojos. Protege contra Sobrecalentamiento.\n\nSinergia: Evita distorsion visual y perdida de saldo.\n\nEFECTO: escudo TAG.CALOR',
+        TAG.CALOR, k => k.eventosAnulados.add(TAG.CALOR)));
+
+      this.stockTienda.push(it('Pendrive',   350,
+        '[FIX] CORRUPTO: Invierte la logica de perdida en fase Punto.\nSi sale 7 u 11 mientras buscas tu Punto, NO pierdes.\n\nRiesgo: Solo dura una tirada y cuesta $200 al usarlo.\n\nEFECTO: invertirPerdidaPunto = true',
+        null, k => { k.invertirPerdidaPunto = true; k.saldo -= 200; }));
+
+      this.stockTienda.push(it('Antena',     350,
+        '[FIX] SEÑAL: Anula completamente eventos de VIRUS.\n\nMini-antena de clips. Elimina estatica del Virus Clover.\n\nSinergia: Garantiza UI limpia para apostar.\n\nEFECTO: escudo TAG.VIRUS',
+        TAG.VIRUS, k => k.eventosAnulados.add(TAG.VIRUS)));
+
+      this.stockTienda.push(it('Antivirus',  350,
+        'CURE: Elimina el estado de Glitch activo + escudo VIRUS.\n\nDisquete viejo con etiqueta CURE.\n\nSinergia: Limpia la UI inmediatamente.\n\nEFECTO: glitched=false + escudo TAG.VIRUS',
+        TAG.VIRUS, k => { k.glitched = false; k.eventosAnulados.add(TAG.VIRUS); }));
+
+      this.stockTienda.push(it('Pasta',      350,
+        '[FIX] TERMICA: Anula eventos de CALOR + mult 1.5x.\n\nJeringa con sustancia gris viscosa. Estabiliza el procesador.\n\nSinergia: Protege contra Thermal Throttling.\n\nEFECTO: escudo CALOR + mult base 1.5x',
+        TAG.CALOR, k => { k.eventosAnulados.add(TAG.CALOR); k.multBase = Math.max(k.multBase, 1.5); k.multGlobal = Math.max(k.multGlobal, 1.5); }));
+
+      this.stockTienda.push(it('Capacitor',  350,
+        '[FIX] INFLADO: Fuerza la suma de dados a ser IMPAR.\nObliga al motor a re-tirar hasta obtener impar (max 3 intentos).\n\nRiesgo: Si el Jefe te reta a PAR, pierdes.\n\nEFECTO: forceImpar = true por 3 rondas',
+        null, k => { k.forceImpar = (k.forceImpar || 0) + 3; }));
+
+      this.stockTienda.push(it('Soldadura',  350,
+        '[FIX] FRIA: Congela D1 en su valor actual por el proximo tiro.\nEl dado 1 mantiene su resultado anterior.\n\nSinergia: Si tienes un 6, puedes congelarlo para sumas altas.\n\nEFECTO: congelarD1 = ultimoD1',
+        null, k => { k.congelarD1 = k.ultimoD1 || 6; }));
+
+      this.stockTienda.push(it('Tequila',    350,
+        'SISTEMA: Ganas +2 vidas extra totales.\n\nBotella con microchip flotando en el fondo.\n\nRiesgo: Activa permanentemente el efecto visual CRT.\n\nEFECTO: vidas += 2',
+        null, k => k.vidas += 2));
+
+    } else {
+      this.inventario.expandir(1);
+      this.stockTienda.push(it('Ojo',        1000,
+        'OJO: D1 base forzado a 1 cara permanentemente.\n\nArtefacto del Void. Vision absoluta del azar.\n\nSinergia: Control total sobre el primer dado.\n\nEFECTO: baseD1 = 1 (permanente)',
+        null, k => k.motorDados.instalarDadosBase(1, k.motorDados.baseD2)));
+
+      this.stockTienda.push(it('Mano',       1000,
+        'MANO: Ambos dados base a D20 permanentemente.\n\nArtefacto del Void. Poder bruto maximizado.\n\nSinergia: Sumas altas garantizadas.\n\nEFECTO: baseD1=20, baseD2=20',
+        null, k => k.motorDados.instalarDadosBase(20, 20)));
+
+      this.stockTienda.push(it('Soul_exe',   1000,
+        'ALMA: Sacrifica 1 vida a cambio de $5000.\n\nArtefacto del Void. El precio es existencial.\n\nRiesgo: Menos vidas para el tramo final.\n\nEFECTO: vidas--, saldo+5000',
+        null, k => { k.vidas--; k.saldo += 5000; }));
+
+      this.stockTienda.push(it('Root',       1000,
+        'SUDO: Multiplicador base fijado en 5.0x.\n\nArtefacto del Void. Acceso total de superusuario.\n\nSinergia: Con saldo alto, cierra el acto de un golpe.\n\nEFECTO: multBase = 5.0',
+        null, k => { k.multBase = 5.0; k.multGlobal = 5.0; }));
+
+      this.stockTienda.push(it('Contrato',   1000,
+        'PACTO: Saldo duplicado a cambio de 2 vidas.\n\nArtefacto del Void. La oferta que no puedes rechazar.\n\nRiesgo: Devastador si ya tienes pocas vidas.\n\nEFECTO: saldo*2, vidas-2',
+        null, k => { k.saldo *= 2; k.vidas -= 2; }));
+
+      this.stockTienda.push(it('Nucleo',     1000,
+        'NUCLEO: Ganas $2000 del corazon del sistema.\n\nArtefacto del Void. Extrae energia del nucleo del Void.\n\nSinergia: Impulso directo hacia la meta final.\n\nEFECTO: saldo+2000',
+        null, k => k.saldo += 2000));
+    }
+  }
+
+  // ═══════════════════════════════
+  // [FIX-5] Selección ponderada
+  // ═══════════════════════════════
+  _seleccionarEvento() {
+    const actoIdx = this.actoActual - 1;
+    const totalPeso = this.poolEventos.reduce((s, ev) => s + ev.pesos[actoIdx], 0);
+    let r = Math.random() * totalPeso;
+    for (const ev of this.poolEventos) {
+      r -= ev.pesos[actoIdx];
+      if (r <= 0) return ev;
+    }
+    return this.poolEventos[0];
+  }
+
+  // ═══════════════════════════════
+  // MOTOR DE CRAPS — fixes aplicados
+  // ═══════════════════════════════
+  jugarRonda(apuesta) {
+    if (apuesta <= 0) throw new Error('La apuesta debe ser mayor que cero.');
+    if (apuesta > this.saldo) throw new Error(`Fondos insuficientes. Saldo: $${this.saldo.toFixed(2)}`);
+    if (this.estado === 'GAME_OVER' || this.estado === 'VICTORIA') return;
+
+    // ── 1. Evento aleatorio con sistema de Tags ───────────────
+    this.ultimoEvento = 'Ninguno';
+    if (!this.skipEvento && this.motorDados.ocurreEvento(this.actoActual)) {
+      const ev = this._seleccionarEvento();
+
+      // [FIX-4] Sistema de anulación por Tag
+      const anulado = this.eventosAnulados.has(ev.tag) ||
+        (ev.esNegativo && this.eventosAnulados.has('__NEGATIVO__'));
+
+      if (anulado) {
+        this.ultimoEvento = `[ANULADO] ${ev.nombre}`;
+        // Consumir el escudo (one-shot)
+        this.eventosAnulados.delete(ev.tag);
+        this.eventosAnulados.delete('__NEGATIVO__');
+      } else {
+        this.ultimoEvento = ev.nombre;
+        ev.ejecutar(this);
+      }
+    }
+    this.skipEvento = false;
+    if (this.estado === 'KERNEL_PANIC') { this.estado = 'EJECUTANDO'; this._notify(); return; }
+
+    // ── 2. Tirada de dados ────────────────────────────────────
+    // [FIX-7] Dado congelado (Soldadura Fría)
+    let d1, d2;
+    if (this.congelarD1 && this.congelarD1 > 0) {
+      d1 = this.congelarD1;
+      this.congelarD1 = null;
+    } else {
+      d1 = this.motorDados.tirarD1();
+    }
+    d2 = this.motorDados.tirarD2();
+    let suma = d1 + d2;
+
+    // [FIX-7] Capacitor inflado: fuerza suma IMPAR
+    if (this.forceImpar && this.forceImpar > 0 && suma % 2 === 0) {
+      // Re-tirar D2 hasta impar (máx 3 veces)
+      let intentos = 0;
+      while (suma % 2 === 0 && intentos < 3) {
+        d2 = this.motorDados.tirarD2(); suma = d1 + d2; intentos++;
+      }
+      this.forceImpar--;
+    }
+
+    this.ultimoD1 = d1;
+    this.ultimoD2 = d2;
+
+    // ── 3. Lógica de Craps ────────────────────────────────────
+    if (this.puntoCraps === null) {
+      // Come-Out Roll
+      if (suma === 7 || suma === 11) {
+        const gan = apuesta * this.multGlobal;
+        this.saldo += gan;
+        this.ultimoResultado = `NATURAL [${d1}+${d2}=${suma}] — GANASTE $${gan.toFixed(2)}`;
+      } else if (suma === 2 || suma === 3 || suma === 12) {
+        this.saldo -= apuesta;
+        this.ultimoResultado = `CRAPS! [${d1}+${d2}=${suma}] — PERDISTE $${apuesta.toFixed(2)}`;
+      } else {
+        this.puntoCraps = suma;
+        this.ultimoResultado = `PUNTO ESTABLECIDO: ${suma} [${d1}+${d2}] — Sigue tirando...`;
+      }
+    } else {
+      // Point Roll
+      if (suma === this.puntoCraps) {
+        const gan = apuesta * this.multGlobal;
+        this.saldo += gan;
+        this.ultimoResultado = `PUNTO! [${d1}+${d2}=${suma}] — GANASTE $${gan.toFixed(2)}`;
+        this.puntoCraps = null;
+        this.invertirPerdidaPunto = false;
+
+      // [FIX-2] El 11 también hace 7-Out en fase Punto (regla Cloverpit)
+      } else if (suma === 7 || suma === 11) {
+        // [FIX-7] Pendrive Corrupto invierte la perdida
+        if (this.invertirPerdidaPunto) {
+          const gan = apuesta * this.multGlobal;
+          this.saldo += gan;
+          this.ultimoResultado = `PENDRIVE! [${d1}+${d2}=${suma}] — 7-Out INVERTIDO — GANASTE $${gan.toFixed(2)}`;
+          this.invertirPerdidaPunto = false;
+        } else {
+          this.saldo -= apuesta;
+          this.ultimoResultado = `7-OUT! [${d1}+${d2}=${suma}] — PERDISTE $${apuesta.toFixed(2)} — Punto perdido.`;
+        }
+        this.puntoCraps = null;
+
+      } else {
+        this.ultimoResultado = `CONTINUA... [${d1}+${d2}=${suma}] — Punto: ${this.puntoCraps}`;
+      }
+    }
+
+    // ── 4. [FIX-6] Bancarrota cancela punto activo ───────────
+    if (this.saldo < 0) this.saldo = 0;
+    if (this.saldo === 0) {
+      if (this.puntoCraps !== null) {
+        this.puntoCraps = null; // cancelar punto al quedar sin saldo
+      }
+      this.quitarVida('BANCARROTA');
+    }
+
+    if (this.puntoCraps === null) this.motorDados.resetarDados();
+    this.verificarMeta();
+    this._notify();
+  }
+
+  verificarMeta() {
+    if (this.saldo < this.metaActo) return;
+    this.actoActual++;
+    if (this.actoActual > 3) {
+      this.estado = 'VICTORIA';
+      this.emitirMensaje('MISION CUMPLIDA', 'HAS COMPLETADO EL VOID ABSOLUTO.\nVICTORIA DEL SISTEMA.');
+      return;
+    }
+    this.saldoInicioActo = this.saldo;
+
+    // [FIX-8] Meta reducida Acto 3 a $7000
+    // [FIX-9] Multiplicador base automático por acto
+    // [FIX-3] Dados base D6→D10→D20 por acto
+    if (this.actoActual === 2) {
+      this.metaActo  = 2500;
+      this.multBase  = Math.max(this.multBase, 1.5);
+      this.multGlobal = this.multBase;
+      this.motorDados.instalarDadosBase(10, 10);
+      this.vidas = Math.max(this.vidas, 5); // Acto 2: mínimo 5 vidas según docs
+    } else if (this.actoActual === 3) {
+      this.metaActo  = 7000;
+      this.multBase  = Math.max(this.multBase, 2.0);
+      this.multGlobal = this.multBase;
+      this.motorDados.instalarDadosBase(20, 20);
+      this.vidas = Math.max(this.vidas, 7); // Acto 3: mínimo 7 vidas según docs
+    }
+
+    this.cargarDatosPorActo();
+    this.emitirMensaje('SISTEMA ACTUALIZADO',
+      `ACTO ${this.actoActual} INICIADO\nDados: D${this.motorDados.baseD1}\nMult base: ${this.multBase.toFixed(1)}x\nMeta: $${this.metaActo.toFixed(0)}`);
+  }
+
+  quitarVida(causa) {
+    this.vidas--;
+    this.glitched = true;
+    this._notifyDmg();
+    if (this.vidas > 0) {
+      this.saldo = 100;
+      this.puntoCraps = null;
+      this.motorDados.resetarDados();
+      this.emitirMensaje('DAÑO DETECTADO', `${causa}\nSistema reiniciado con $100.`);
+    } else {
+      this.estado = 'GAME_OVER';
+      this.emitirMensaje('FATAL ERROR', `FALLO CRITICO: ${causa}\nGAME OVER — Sistema comprometido.`);
+    }
+  }
+
+  comprarItem(item) {
+    if (this.saldo < item.precio)
+      throw new Error(`Fondos insuficientes. Necesitas $${item.precio.toFixed(2)}.`);
+    this.inventario.instalar(item);
+    this.saldo -= item.precio;
+    // [FIX-4] Registrar escudo del ítem si tiene tag de anulación
+    if (item.anulaTag) this.eventosAnulados.add(item.anulaTag);
+    item.efecto(this);
+    this.ultimoEvento    = `INSTALL: ${item.nombre}`;
+    this.ultimoResultado = `Script instalado correctamente. Costo: $${item.precio.toFixed(2)}`;
+    this._notify();
+  }
+
+  getProgreso() {
+    const rango = this.metaActo - this.saldoInicioActo;
+    if (rango <= 0) return 1;
+    return Math.max(0, Math.min(1, (this.saldo - this.saldoInicioActo) / rango));
+  }
+
+  getEscudosActivos() {
+    return [...this.eventosAnulados].map(t => {
+      if (t === '__NEGATIVO__') return 'CERVEZA';
+      return t;
+    });
+  }
+}
+
+// ═══════════════════════════════════
+// TYPEWRITER LOGGER
+// ═══════════════════════════════════
+class TypewriterLogger {
+  constructor(tbody) { this.tbody = tbody; this.cola = []; this.writing = false; this.MAX = 50; }
+  encolar(origen, evento, resultado) {
+    this.cola.unshift({ origen, evento, resultado });
+    if (!this.writing) this._next();
+  }
+  _next() {
+    if (!this.cola.length) { this.writing = false; return; }
+    this.writing = true;
+    const e = this.cola.pop();
+    while (this.tbody.rows.length >= this.MAX) this.tbody.deleteRow(this.tbody.rows.length - 1);
+    const tr = this.tbody.insertRow(0);
+    tr.innerHTML = `<td class="col-origen">${e.origen}</td><td class="col-evento">${e.evento}</td><td class="col-resultado"></td>`;
+    const cell = tr.querySelector('.col-resultado');
+    let i = 0; const txt = e.resultado;
+    const tick = setInterval(() => {
+      cell.textContent = txt.slice(0, ++i);
+      if (i >= txt.length) { clearInterval(tick); this._next(); }
+    }, 20);
+  }
+}
+
+// ═══════════════════════════════════
+// UI CONTROLLER
+// ═══════════════════════════════════
+const UI = (() => {
+  let kernel, logger, glitchTimer = null;
+  const $ = id => document.getElementById(id);
+
+  function init() {
+    kernel = new VoidRollerKernel();
+    logger = new TypewriterLogger($('log-body'));
+    kernel.addObserver(refrescarHUD);
+    kernel.addObserver({ onMsg: mostrarMensaje, onDmg: activarGlitch });
+    refrescarHUD();
+    iniciarReloj();
+  }
+
+  function refrescarHUD() {
+    $('hud-acto').textContent  = kernel.actoActual;
+    $('hud-saldo').textContent = `$${kernel.saldo.toFixed(2)}`;
+    $('hud-meta').textContent  = `$${kernel.metaActo.toFixed(0)}`;
+    $('hud-mult').textContent  = `${kernel.multGlobal.toFixed(2)}x`;
+
+    let c = '';
+    for (let i = 0; i < kernel.vidas; i++) c += '♥';
+    for (let i = kernel.vidas; i < Math.max(3, kernel.vidas + 1); i++) c += '♡';
+    const hv = $('hud-vidas');
+    hv.textContent = c;
+    hv.style.color = kernel.vidas <= 1 ? 'var(--red)' : '';
+
+    // Dados con animación
+    const d1 = $('die1'), d2 = $('die2');
+    if (kernel.ultimoD1 > 0) {
+      d1.classList.add('rolling'); d2.classList.add('rolling');
+      setTimeout(() => {
+        d1.textContent = kernel.ultimoD1;
+        d2.textContent = kernel.ultimoD2;
+        d1.classList.remove('rolling');
+        d2.classList.remove('rolling');
+      }, 500);
+    }
+
+    const md = kernel.motorDados;
+    $('die1-label').textContent = `D${md.carasD1}`;
+    $('die2-label').textContent = `D${md.carasD2}`;
+    $('dados-base').textContent = `D${md.baseD1} + D${md.baseD2}`;
+    $('dice-info').textContent  = kernel.ultimoD1 > 0 ? `suma: ${kernel.ultimoD1 + kernel.ultimoD2}` : 'suma: —';
+    $('punto-display').textContent = kernel.puntoCraps ? `PUNTO: ${kernel.puntoCraps}` : 'PUNTO: ---';
+    $('ram-slots').textContent = `${kernel.inventario.slotsUsados()} / ${kernel.inventario.capacidad}`;
+    $('last-event').textContent = kernel.ultimoEvento;
+
+    // Escudos activos
+    const shields = kernel.getEscudosActivos();
+    $('shields-row').textContent = shields.length ? shields.join(', ') : 'ninguno';
+    $('shields-row').style.color = shields.length ? 'var(--cyan)' : 'var(--neon-dim)';
+
+    // Hack bar
+    const p = kernel.getProgreso();
+    $('hack-bar-fill').style.width = `${(p*100).toFixed(1)}%`;
+    $('hack-bar-text').textContent = `HACK: ${(p*100).toFixed(0)}%`;
+    const r = Math.round(p*255), g = Math.round((1-p)*200+56);
+    $('hack-bar-fill').style.background = `linear-gradient(90deg,#003820,rgb(${r},${g},0))`;
+
+    if (kernel.ultimoResultado !== '---')
+      logger.encolar(`ACT-${kernel.actoActual}`, kernel.ultimoEvento, kernel.ultimoResultado);
+
+    const activo = kernel.estado === 'EJECUTANDO';
+    $('btn-roll').disabled  = !activo;
+    $('btn-shop').disabled  = !activo;
+
+    if (kernel.estado === 'GAME_OVER') mostrarEndscreen(false);
+    if (kernel.estado === 'VICTORIA')  mostrarEndscreen(true);
+  }
+
+  function activarGlitch() {
+    if (glitchTimer) return;
+    document.getElementById('app').classList.add('glitch-active');
+    document.documentElement.style.setProperty('--neon','#ff3232');
+    glitchTimer = setTimeout(() => {
+      document.getElementById('app').classList.remove('glitch-active');
+      document.documentElement.style.setProperty('--neon','#00ff80');
+      glitchTimer = null;
+    }, 1500);
+  }
+
+  function iniciarReloj() {
+    const tick = () => $('clock-val').textContent = new Date().toLocaleTimeString('es-MX',{hour12:false});
+    setInterval(tick, 1000); tick();
+  }
+
+  function mostrarMensaje(titulo, mensaje) {
+    const o = document.createElement('div');
+    o.className = 'modal-overlay msg-modal';
+    o.innerHTML = `<div class="modal-box">
+      <div class="modal-header"><span>${titulo}</span>
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+      <div class="msg-body">${mensaje}</div>
+      <div style="padding:0 16px 16px">
+        <button class="modal-btn ok" style="width:100%" onclick="this.closest('.modal-overlay').remove()">[ ACEPTAR ]</button>
+      </div></div>`;
+    document.body.appendChild(o);
+  }
+
+  function mostrarEndscreen(victoria) {
+    const es = $('endscreen'), t = $('endscreen-title');
+    t.textContent = victoria ? 'VICTORIA' : 'GAME OVER';
+    t.className   = victoria ? 'victory'  : 'gameover';
+    $('endscreen-sub').textContent = victoria
+      ? `VOID ABSOLUTO COMPROMETIDO\nActo ${kernel.actoActual} completado\nSaldo: $${kernel.saldo.toFixed(2)}`
+      : `PROCESO TERMINADO\nActos completados: ${kernel.actoActual-1}\nSaldo al colapso: $${kernel.saldo.toFixed(2)}`;
+    es.classList.add('visible');
+  }
+
+  function toast(msg) {
+    const t = $('toast');
+    t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+  }
+
+  function abrirApuesta() {
+    const o = document.createElement('div');
+    o.className = 'modal-overlay';
+    o.innerHTML = `<div class="modal-box">
+      <div class="modal-header"><span>BET VOID — APUESTA</span>
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+      <div class="modal-body">
+        <input type="number" id="bet-amount" min="1" value="10" autocomplete="off">
+        <div class="bet-info">SALDO: $${kernel.saldo.toFixed(2)} | PUNTO: ${kernel.puntoCraps ?? '---'} | MULT: ${kernel.multGlobal.toFixed(2)}x</div>
+        <div class="modal-btns">
+          <button class="modal-btn ok" id="bet-ok">EJECUTAR</button>
+          <button class="modal-btn cancel" onclick="this.closest('.modal-overlay').remove()">CANCELAR</button>
+        </div>
+      </div></div>`;
+    document.body.appendChild(o);
+    const inp = o.querySelector('#bet-amount');
+    inp.focus(); inp.select();
+    const exec = () => {
+      try { kernel.jugarRonda(parseFloat(inp.value)); o.remove(); }
+      catch(e) { toast('⚠ ' + e.message); }
+    };
+    o.querySelector('#bet-ok').onclick = exec;
+    inp.addEventListener('keydown', e => { if (e.key==='Enter') exec(); });
+  }
+
+  function abrirTienda() {
+    const stock = kernel.stockTienda;
+    if (!stock.length) { toast('Stock vacío para este acto.'); return; }
+    abrirListaModal('MARKET VOID — ACTO ' + kernel.actoActual, stock,
+      it => `$${it.precio.toFixed(2)}`,
+      it => `RAM LIBRE: ${kernel.inventario.slotsLibres()} slots`,
+      it => it.anulaTag ? `ESCUDO: ${it.anulaTag}` : '',
+      it => {
+        try { kernel.comprarItem(it); return true; }
+        catch(e) { toast('⚠ ' + e.message); return false; }
+      }, '[ INSTALAR SCRIPT ]', '#007040', false
+    );
+  }
+
+  function abrirEventos() {
+    const visto = new Set();
+    const unicos = kernel.poolEventos.filter(ev => {
+      if (visto.has(ev.nombre)) return false;
+      visto.add(ev.nombre); return true;
+    });
+    const prob = 25 + kernel.actoActual * 15;
+    abrirListaModal('EVENT VOID — ACTO ' + kernel.actoActual, unicos,
+      ev => ev.categoria,
+      ev => `PROB: ${prob}% | TAG: ${ev.tag}`,
+      ev => ev.esNegativo ? '⚠ NEGATIVO' : '✓ NEUTRO/POSITIVO',
+      () => true, '[ CERRAR VISOR ]', '#303030', true
+    );
+  }
+
+  function abrirListaModal(titulo, items, fnPrecio, fnMeta, fnExtra, fnAccion, btnColor, soloLectura) {
+    const liItems = items.map((it,i) => {
+      const tag = it.tag || it.anulaTag || '';
+      const badge = tag && tag !== 'NINGUNO'
+        ? `<span class="tag-badge tag-${tag}">${tag}</span>` : '';
+      return `<li data-idx="${i}">${it.nombre}${badge}</li>`;
+    }).join('');
+
+    const o = document.createElement('div');
+    o.className = 'modal-overlay list-modal';
+    o.innerHTML = `<div class="modal-box">
+      <div class="modal-header"><span>${titulo}</span>
+        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</button></div>
+      <div class="modal-body">
+        <div class="item-list-wrap"><ul class="item-list" id="ml-list">${liItems}</ul></div>
+        <div class="detail-panel">
+          <div class="detail-header">
+            <span class="detail-price" id="ml-price">Selecciona un elemento...</span>
+            <span class="detail-meta"  id="ml-meta"></span>
+            <span class="detail-shield-info" id="ml-extra"></span>
+          </div>
+          <div class="detail-desc" id="ml-desc">> Selecciona un elemento de la lista para ver sus detalles.</div>
+        </div>
+      </div>
+      <div class="list-modal-footer">
+        <button class="modal-btn ok" id="ml-btn" style="width:100%;border-color:${btnColor};color:${btnColor}" disabled>${soloLectura ? '[ CERRAR VISOR ]' : '[ INSTALAR SCRIPT ]'}</button>
+      </div></div>`;
+    document.body.appendChild(o);
+
+    let selIdx = -1;
+    const listEl  = o.querySelector('#ml-list');
+    const priceEl = o.querySelector('#ml-price');
+    const metaEl  = o.querySelector('#ml-meta');
+    const extraEl = o.querySelector('#ml-extra');
+    const descEl  = o.querySelector('#ml-desc');
+    const btnEl   = o.querySelector('#ml-btn');
+
+    listEl.addEventListener('click', e => {
+      const li = e.target.closest('li');
+      if (!li) return;
+      listEl.querySelectorAll('li').forEach(el => el.classList.remove('selected'));
+      li.classList.add('selected');
+      selIdx = parseInt(li.dataset.idx);
+      const it = items[selIdx];
+      priceEl.textContent = fnPrecio(it);
+      metaEl.textContent  = fnMeta(it);
+      extraEl.textContent = fnExtra(it);
+      descEl.textContent  = `> ${it.nombre}\n\n${it.descripcion || it.desc}`;
+      btnEl.disabled = false;
+    });
+
+    btnEl.onclick = () => {
+      if (selIdx < 0) return;
+      if (soloLectura) { o.remove(); return; }
+      if (fnAccion(items[selIdx])) o.remove();
+    };
+  }
+
+  return { init, abrirApuesta, abrirTienda, abrirEventos };
+})();
+
+function reiniciar() {
+  document.getElementById('endscreen').classList.remove('visible');
+  document.getElementById('log-body').innerHTML = '';
+  UI.init();
+}
+
+window.addEventListener('DOMContentLoaded', () => UI.init());
+</script>
+</body>
+</html>
